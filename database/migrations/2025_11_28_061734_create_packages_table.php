@@ -13,14 +13,24 @@ return new class extends Migration
     {
         Schema::create('packages', function (Blueprint $table) {
             $table->id();
-            $table->string('name'); // Usaha Kecil, Bisnis Menengah, Bisnis, E-commerce
-            $table->text('description');
-            $table->decimal('base_price', 12, 2); // Harga dasar
-            $table->boolean('is_custom_price')->default(false); // Untuk e-commerce
-            $table->json('features')->nullable(); // Fitur-fitur paket
-            $table->integer('estimated_days')->nullable(); // Estimasi pengerjaan
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->enum('type', ['usaha_kecil', 'bisnis_menengah', 'bisnis', 'e_commerce']);
+            $table->decimal('base_price', 15, 0)->default(0);
+            $table->json('features')->nullable();
+            $table->integer('delivery_time')->default(14)->comment('Delivery time in days');
+            $table->integer('revision_limit')->default(3);
             $table->boolean('is_active')->default(true);
+            $table->integer('sort_order')->default(0);
             $table->timestamps();
+            $table->softDeletes();
+
+            // Add indexes
+            $table->index('type');
+            $table->index('is_active');
+            $table->index('sort_order');
+            $table->index(['is_active', 'sort_order']);
+            $table->index('created_at');
         });
     }
 

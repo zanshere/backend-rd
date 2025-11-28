@@ -15,11 +15,24 @@ return new class extends Migration
             $table->id();
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->integer('rating')->default(5); // 1-5 stars
-            $table->text('comment');
-            $table->text('admin_response')->nullable();
-            $table->boolean('is_approved')->default(true); // Untuk moderasi
+            $table->integer('rating')->default(5);
+            $table->text('comment')->nullable();
+            $table->text('suggestions')->nullable();
+            $table->enum('status', ['pending', 'read', 'archived'])->default('pending');
+            $table->text('admin_reply')->nullable();
+            $table->foreignId('replied_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('replied_at')->nullable();
             $table->timestamps();
+
+            // Add indexes
+            $table->index('order_id');
+            $table->index('user_id');
+            $table->index('rating');
+            $table->index('status');
+            $table->index('replied_by');
+            $table->index('replied_at');
+            $table->index('created_at');
+            $table->index(['status', 'created_at']);
         });
     }
 

@@ -17,11 +17,21 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('status', ['active', 'nonactive'])->default('active');
+            $table->string('phone')->nullable();
+            $table->string('company_name')->nullable();
             $table->enum('role', ['admin', 'user'])->default('user');
+            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
+
+            // Add indexes for better performance
+            $table->index('role');
+            $table->index('status');
+            $table->index(['role', 'status']);
+            $table->index('last_login_at');
+            $table->index('created_at');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -45,8 +55,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

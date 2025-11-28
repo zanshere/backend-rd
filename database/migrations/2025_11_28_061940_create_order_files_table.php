@@ -16,11 +16,20 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->string('file_name');
             $table->string('file_path');
-            $table->string('file_type'); // source_code, documentation, etc.
-            $table->integer('file_size')->nullable();
+            $table->bigInteger('file_size')->default(0);
+            $table->enum('file_type', ['source_code', 'database', 'documentation', 'design', 'other'])->default('other');
             $table->text('description')->nullable();
             $table->foreignId('uploaded_by')->constrained('users')->onDelete('cascade');
+            $table->string('version')->default('1.0');
             $table->timestamps();
+
+            // Add indexes
+            $table->index('order_id');
+            $table->index('uploaded_by');
+            $table->index('file_type');
+            $table->index('file_name');
+            $table->index('created_at');
+            $table->index(['order_id', 'file_type']);
         });
     }
 

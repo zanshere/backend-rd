@@ -13,18 +13,36 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->string('order_code')->unique(); // Kode unik pesanan
+            $table->string('order_number')->unique();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('package_id')->constrained()->onDelete('cascade');
-            $table->decimal('final_price', 12, 2); // Harga final setelah nego
-            $table->text('requirements'); // Requirement dari user
-            $table->text('special_requests')->nullable(); // Request khusus
-            $table->enum('status', ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'])->default('pending');
-            $table->enum('payment_status', ['pending', 'paid', 'failed'])->default('pending');
-            $table->timestamp('accepted_at')->nullable();
+            $table->string('custom_package_name')->nullable();
+            $table->json('custom_features')->nullable();
+            $table->text('description')->nullable();
+            $table->decimal('total_price', 15, 0)->default(0);
+            $table->decimal('paid_amount', 15, 0)->default(0);
+            $table->enum('status', ['pending', 'accepted', 'progress', 'revision', 'completed', 'cancelled', 'rejected'])->default('pending');
+            $table->enum('payment_status', ['pending', 'paid', 'partial', 'failed', 'refunded'])->default('pending');
+            $table->integer('progress_percentage')->default(0);
+            $table->timestamp('deadline')->nullable();
             $table->timestamp('completed_at')->nullable();
-            $table->text('admin_notes')->nullable(); // Catatan admin
+            $table->text('admin_notes')->nullable();
+            $table->text('customer_notes')->nullable();
+            $table->json('special_requirements')->nullable();
             $table->timestamps();
+            $table->softDeletes();
+
+            // Add indexes
+            $table->index('order_number');
+            $table->index('user_id');
+            $table->index('package_id');
+            $table->index('status');
+            $table->index('payment_status');
+            $table->index('progress_percentage');
+            $table->index('deadline');
+            $table->index('completed_at');
+            $table->index(['status', 'payment_status']);
+            $table->index('created_at');
         });
     }
 
