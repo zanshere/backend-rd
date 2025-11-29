@@ -17,6 +17,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->enum('type', ['usaha_kecil', 'bisnis_menengah', 'bisnis', 'e_commerce']);
             $table->decimal('base_price', 15, 0)->default(0);
+            $table->boolean('is_custom_price')->default(false); // Tambahkan ini
             $table->json('features')->nullable();
             $table->integer('delivery_time')->default(14)->comment('Delivery time in days');
             $table->integer('revision_limit')->default(3);

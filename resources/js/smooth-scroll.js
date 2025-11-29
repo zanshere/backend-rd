@@ -1,5 +1,4 @@
 import Lenis from 'lenis';
-import { motion } from 'framer-motion';
 
 // Initialize Lenis for smooth scrolling
 document.addEventListener('DOMContentLoaded', function() {
@@ -24,16 +23,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
     requestAnimationFrame(raf);
 });
-
-// Optional: Framer Motion animations
-export const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    in: { opacity: 1, y: 0 },
-    out: { opacity: 0, y: -20 }
-};
-
-export const pageTransition = {
-    type: "tween",
-    ease: "anticipate",
-    duration: 0.5
-};

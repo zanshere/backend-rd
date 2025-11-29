@@ -14,7 +14,7 @@ class Feedback extends Model
      *
      * @var string
      */
-    protected $table = 'feedbacks'; // Tambahkan ini
+    protected $table = 'feedbacks';
 
     /**
      * Rating constants
@@ -33,6 +33,15 @@ class Feedback extends Model
     const STATUS_ARCHIVED = 'archived';
 
     /**
+     * Type constants
+     */
+    const TYPE_SUGGESTION = 'suggestion';
+    const TYPE_COMPLAINT = 'complaint';
+    const TYPE_BUG = 'bug';
+    const TYPE_FEATURE = 'feature';
+    const TYPE_OTHER = 'other';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -40,13 +49,13 @@ class Feedback extends Model
     protected $fillable = [
         'order_id',
         'user_id',
+        'type',
         'rating',
-        'comment',
-        'suggestions',
+        'message',
         'status',
-        'admin_reply',
-        'replied_by',
-        'replied_at',
+        'response',
+        'responded_by',
+        'responded_at',
     ];
 
     /**
@@ -56,10 +65,25 @@ class Feedback extends Model
      */
     protected $casts = [
         'rating' => 'integer',
-        'replied_at' => 'datetime',
+        'responded_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'rating' => 'integer',
+            'responded_at' => 'datetime',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
+    }
 
     /**
      * Scope for pending feedbacks
@@ -75,6 +99,30 @@ class Feedback extends Model
     public function scopeRead($query)
     {
         return $query->where('status', self::STATUS_READ);
+    }
+
+    /**
+     * Scope for archived feedbacks
+     */
+    public function scopeArchived($query)
+    {
+        return $query->where('status', self::STATUS_ARCHIVED);
+    }
+
+    /**
+     * Scope by type
+     */
+    public function scopeByType($query, $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    /**
+     * Scope with rating
+     */
+    public function scopeWithRating($query)
+    {
+        return $query->whereNotNull('rating');
     }
 
     /**
@@ -94,10 +142,104 @@ class Feedback extends Model
     }
 
     /**
-     * Relationship with admin who replied
+     * Relationship with admin who responded
      */
-    public function replier()
+    public function responder()
     {
-        return $this->belongsTo(User::class, 'replied_by');
+        return $this->belongsTo(User::class, 'responded_by');
+    }
+
+    /**
+     * Check if feedback has response
+     */
+    public function getHasResponseAttribute()
+    {
+        return !is_null($this->response);
+    }
+
+    /**
+     * Get rating text
+     */
+    public function getRatingTextAttribute()
+    {
+        return match($this->rating) {
+            self::RATING_EXCELLENT => 'Sangat Baik',
+            self::RATING_GOOD => 'Baik',
+            self::RATING_AVERAGE => 'Cukup',
+            self::RATING_POOR => 'Buruk',
+            self::RATING_VERY_POOR => 'Sangat Buruk',
+            default => 'Tidak ada rating',
+        };
+    }
+
+    /**
+     * Get type label
+     */
+    public function getTypeLabelAttribute()
+    {
+        return match($this->type) {
+            self::TYPE_SUGGESTION => 'Saran',
+            self::TYPE_COMPLAINT => 'Keluhan',
+            self::TYPE_BUG => 'Bug/Error',
+            self::TYPE_FEATURE => 'Permintaan Fitur',
+            self::TYPE_OTHER => 'Lainnya',
+            default => $this->type,
+        };
+    }
+
+    /**
+     * Check if feedback is read
+     */
+    public function getIsReadAttribute()
+    {
+        return $this->status === self::STATUS_READ || !is_null($this->response);
+    }
+
+    /**
+     * Get user initials for avatar
+     */
+    public function getUserInitialsAttribute()
+    {
+        $name = $this->user->name ?? 'U';
+        $initials = '';
+        $words = explode(' ', $name);
+
+        foreach ($words as $word) {
+            if (strlen($initials) >= 2) break;
+            $initials .= strtoupper(substr($word, 0, 1));
+        }
+
+        return $initials ?: 'U';
+    }
+
+    /**
+     * Scope for unread feedbacks
+     */
+    public function scopeUnread($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    /**
+     * Scope for responded feedbacks
+     */
+    public function scopeResponded($query)
+    {
+        return $query->whereNotNull('response');
+    }
+
+    /**
+     * Get badge color based on type
+     */
+    public function getBadgeColorAttribute()
+    {
+        return match($this->type) {
+            self::TYPE_SUGGESTION => 'green',
+            self::TYPE_COMPLAINT => 'red',
+            self::TYPE_BUG => 'orange',
+            self::TYPE_FEATURE => 'blue',
+            self::TYPE_OTHER => 'gray',
+            default => 'gray',
+        };
     }
 }

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->enum('role', ['admin', 'user'])->default('user');
             $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->timestamp('last_login_at')->nullable();
+             $table->json('notification_settings')->nullable();
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

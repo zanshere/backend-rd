@@ -17,7 +17,7 @@ class AdminUserSeeder extends Seeder
         $admins = [
             [
                 'name' => 'Super Administrator',
-                'email' => 'superadmin@example.com',
+                'email' => 'superadmin@gmail.com', // Diperbaiki dari 'superadmin@example.com'
                 'password' => Hash::make('superadmin123'),
                 'phone' => '+6281111111111',
                 'company_name' => 'Super Admin Company',
@@ -28,7 +28,7 @@ class AdminUserSeeder extends Seeder
             ],
             [
                 'name' => 'Website Manager',
-                'email' => 'webmanager@example.com',
+                'email' => 'webmanager@gmail.com', // Diperbaiki dari 'webmanager@example.com'
                 'password' => Hash::make('webmanager123'),
                 'phone' => '+6281222222222',
                 'company_name' => 'Web Management Inc',
@@ -39,7 +39,7 @@ class AdminUserSeeder extends Seeder
             ],
             [
                 'name' => 'System Operator',
-                'email' => 'sysop@example.com',
+                'email' => 'sysop@gmail.com', // Diperbaiki dari 'sysop@example.com'
                 'password' => Hash::make('sysop12345'),
                 'phone' => '+6281333333333',
                 'company_name' => 'System Operations',
@@ -69,9 +69,13 @@ class AdminUserSeeder extends Seeder
             $this->command->info("SUCCESS: {$createdCount} admin users created!");
             $this->command->info('═══════════════════════════════════════════════════');
             $this->command->info('Default login credentials for created accounts:');
-            $this->command->info('1. superadmin@example.com / superadmin123');
-            $this->command->info('2. webmanager@example.com / webmanager123');
-            $this->command->info('3. sysop@example.com / sysop12345');
+            $this->command->info('1. superadmin@gmail.com / superadmin123');
+            $this->command->info('2. webmanager@gmail.com / webmanager123');
+            $this->command->info('3. sysop@gmail.com / sysop12345');
+            $this->command->info('═══════════════════════════════════════════════════');
+        } else {
+            $this->command->info('═══════════════════════════════════════════════════');
+            $this->command->info("INFO: All admin users already exist!");
             $this->command->info('═══════════════════════════════════════════════════');
         }
     }

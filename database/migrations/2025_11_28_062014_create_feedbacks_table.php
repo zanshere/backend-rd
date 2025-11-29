@@ -6,40 +6,30 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function up()
     {
         Schema::create('feedbacks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->integer('rating')->default(5);
-            $table->text('comment')->nullable();
-            $table->text('suggestions')->nullable();
+            $table->foreignId('order_id')->nullable()->constrained()->onDelete('set null');
+            $table->enum('type', ['suggestion', 'complaint', 'bug', 'feature', 'other']);
+            $table->text('message');
+            $table->integer('rating')->nullable();
             $table->enum('status', ['pending', 'read', 'archived'])->default('pending');
-            $table->text('admin_reply')->nullable();
-            $table->foreignId('replied_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->timestamp('replied_at')->nullable();
+            $table->text('response')->nullable();
+            $table->foreignId('responded_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('responded_at')->nullable();
             $table->timestamps();
 
-            // Add indexes
-            $table->index('order_id');
-            $table->index('user_id');
-            $table->index('rating');
-            $table->index('status');
-            $table->index('replied_by');
-            $table->index('replied_at');
+            // Indexes
+            $table->index(['user_id', 'status']);
+            $table->index(['type', 'status']);
             $table->index('created_at');
-            $table->index(['status', 'created_at']);
+            $table->index('rating');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('feedbacks');
     }

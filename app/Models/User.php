@@ -41,6 +41,7 @@ class User extends Authenticatable
         'status',
         'last_login_at',
         'email_verified_at',
+        'notification_settings',
     ];
 
     /**
@@ -68,8 +69,29 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'notification_settings' => 'array',
         ];
     }
+
+    /**
+     * Default values for attributes
+     */
+    protected $attributes = [
+        'notification_settings' => '{
+            "email": {
+                "order_updates": true,
+                "messages": true,
+                "system": true
+            },
+            "push": {
+                "order_updates": true,
+                "messages": true,
+                "promotions": false
+            }
+        }',
+        'role' => self::ROLE_USER,
+        'status' => self::STATUS_ACTIVE,
+    ];
 
     /**
      * Get the user's initials - FIXED VERSION
@@ -238,7 +260,7 @@ class User extends Authenticatable
      */
     public function feedbackReplies()
     {
-        return $this->hasMany(Feedback::class, 'replied_by');
+        return $this->hasMany(Feedback::class, 'responded_by');
     }
 
     /**
@@ -381,6 +403,346 @@ class User extends Authenticatable
     }
 
     /**
+     * Relationship with sent messages
+     */
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    /**
+     * Relationship with conversations as user1
+     */
+    public function conversationsAsUser1()
+    {
+        return $this->hasMany(Conversation::class, 'user1_id');
+    }
+
+    /**
+     * Relationship with conversations as user2
+     */
+    public function conversationsAsUser2()
+    {
+        return $this->hasMany(Conversation::class, 'user2_id');
+    }
+
+    /**
+     * Get all conversations for this user
+     */
+    public function conversations()
+    {
+        return Conversation::where('user1_id', $this->id)
+            ->orWhere('user2_id', $this->id)
+            ->orderBy('last_message_at', 'desc');
+    }
+
+    /**
+     * Check if user can receive notifications
+     */
+    public function canReceiveNotifications(): bool
+    {
+        return $this->isActive();
+    }
+
+    /**
+     * Check if user can send messages
+     */
+    public function canSendMessages(): bool
+    {
+        return $this->isActive();
+    }
+
+    /**
+     * Get user's unread messages count
+     */
+    public function getUnreadMessagesCountAttribute(): int
+    {
+        return Message::whereHas('conversation', function ($query) {
+            $query->where('user1_id', $this->id)
+                  ->orWhere('user2_id', $this->id);
+        })
+        ->where('sender_id', '!=', $this->id)
+        ->whereNull('read_at')
+        ->count();
+    }
+
+    /**
+     * Get user's recent conversations with unread counts
+     */
+    public function getRecentConversationsAttribute()
+    {
+        return $this->conversations()
+            ->with(['user1', 'user2', 'lastMessage'])
+            ->take(5)
+            ->get()
+            ->map(function ($conversation) {
+                $conversation->unread_count = $conversation->messages()
+                    ->where('sender_id', '!=', $this->id)
+                    ->whereNull('read_at')
+                    ->count();
+                $conversation->other_user = $conversation->user1_id == $this->id
+                    ? $conversation->user2
+                    : $conversation->user1;
+                return $conversation;
+            });
+    }
+
+    /**
+     * Get user's notification settings with defaults
+     */
+    public function getNotificationSettingsAttribute($value): array
+    {
+        $defaultSettings = [
+            'email' => [
+                'order_updates' => true,
+                'messages' => true,
+                'system' => true,
+            ],
+            'push' => [
+                'order_updates' => true,
+                'messages' => true,
+                'promotions' => false,
+            ],
+        ];
+
+        if (is_array($value)) {
+            return array_merge($defaultSettings, $value);
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? array_merge($defaultSettings, $decoded) : $defaultSettings;
+        }
+
+        return $defaultSettings;
+    }
+
+    /**
+     * Set user's notification settings
+     */
+    public function setNotificationSettingsAttribute($value): void
+    {
+        if (is_array($value)) {
+            $this->attributes['notification_settings'] = json_encode($value);
+        } else {
+            $this->attributes['notification_settings'] = $value;
+        }
+    }
+
+    /**
+     * Check if user has email notification enabled for specific type
+     */
+    public function hasEmailNotification(string $type): bool
+    {
+        return $this->notification_settings['email'][$type] ?? true;
+    }
+
+    /**
+     * Check if user has push notification enabled for specific type
+     */
+    public function hasPushNotification(string $type): bool
+    {
+        return $this->notification_settings['push'][$type] ?? true;
+    }
+
+    /**
+     * Update user's notification settings
+     */
+    public function updateNotificationSettings(array $settings): bool
+    {
+        $currentSettings = $this->notification_settings;
+        $mergedSettings = array_merge($currentSettings, $settings);
+
+        return $this->update(['notification_settings' => $mergedSettings]);
+    }
+
+    /**
+     * Get user's dashboard statistics
+     */
+    public function getDashboardStatsAttribute(): array
+    {
+        $stats = [
+            'total_orders' => $this->orders()->count(),
+            'pending_orders' => $this->pendingOrders()->count(),
+            'in_progress_orders' => $this->inProgressOrders()->count(),
+            'completed_orders' => $this->completedOrders()->count(),
+            'total_spending' => $this->total_spending,
+            'average_rating' => $this->average_rating,
+            'unread_messages' => $this->unread_messages_count,
+        ];
+
+        if ($this->isAdmin()) {
+            $stats['total_users'] = User::regular()->count();
+            $stats['total_feedbacks'] = Feedback::count();
+            $stats['pending_feedbacks'] = Feedback::where('status', Feedback::STATUS_PENDING)->count();
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Get user's activity timeline
+     */
+    public function getActivityTimelineAttribute()
+    {
+        $activities = collect();
+
+        // Recent orders
+        $recentOrders = $this->orders()
+            ->with('package')
+            ->latest()
+            ->take(3)
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'type' => 'order',
+                    'title' => 'Pesanan Baru: ' . ($order->package->name ?? 'Unknown Package'),
+                    'description' => 'Order #' . $order->order_number,
+                    'timestamp' => $order->created_at,
+                    'status' => $order->status,
+                ];
+            });
+
+        // Recent feedbacks
+        $recentFeedbacks = $this->feedbacks()
+            ->with('order')
+            ->latest()
+            ->take(3)
+            ->get()
+            ->map(function ($feedback) {
+                return [
+                    'type' => 'feedback',
+                    'title' => 'Feedback ' . ucfirst($feedback->type),
+                    'description' => Str::limit($feedback->message, 50),
+                    'timestamp' => $feedback->created_at,
+                    'status' => $feedback->status,
+                ];
+            });
+
+        // Recent messages
+        $recentMessages = $this->sentMessages()
+            ->with('conversation')
+            ->latest()
+            ->take(3)
+            ->get()
+            ->map(function ($message) {
+                return [
+                    'type' => 'message',
+                    'title' => 'Pesan Terkirim',
+                    'description' => Str::limit($message->content, 50),
+                    'timestamp' => $message->created_at,
+                    'status' => 'sent',
+                ];
+            });
+
+        $activities = $activities
+            ->merge($recentOrders)
+            ->merge($recentFeedbacks)
+            ->merge($recentMessages)
+            ->sortByDesc('timestamp')
+            ->take(5);
+
+        return $activities;
+    }
+
+    /**
+     * Get user's preferred communication method
+     */
+    public function getPreferredCommunicationMethodAttribute(): string
+    {
+        $settings = $this->notification_settings;
+
+        if ($settings['email']['messages'] ?? true) {
+            return 'email';
+        } elseif ($settings['push']['messages'] ?? true) {
+            return 'push';
+        } else {
+            return 'in_app';
+        }
+    }
+
+    /**
+     * Check if user has unread notifications
+     */
+    public function hasUnreadNotifications(): bool
+    {
+        return $this->unreadNotifications()->exists();
+    }
+
+    /**
+     * Get user's unread notifications count
+     */
+    public function getUnreadNotificationsCountAttribute(): int
+    {
+        return $this->unreadNotifications()->count();
+    }
+
+    /**
+     * Mark all notifications as read
+     */
+    public function markAllNotificationsAsRead(): void
+    {
+        $this->unreadNotifications->markAsRead();
+    }
+
+    /**
+     * Get user's profile completion percentage
+     */
+    public function getProfileCompletionPercentageAttribute(): int
+    {
+        $fields = [
+            'name' => !empty($this->name),
+            'email' => !empty($this->email) && $this->hasVerifiedEmail(),
+            'phone' => !empty($this->phone),
+            'company_name' => !empty($this->company_name),
+        ];
+
+        $completed = count(array_filter($fields));
+        $total = count($fields);
+
+        return (int) round(($completed / $total) * 100);
+    }
+
+    /**
+     * Check if user has verified email
+     */
+    public function hasVerifiedEmail(): bool
+    {
+        return !is_null($this->email_verified_at);
+    }
+
+    /**
+     * Get user's display name with role badge
+     */
+    public function getDisplayNameWithRoleAttribute(): string
+    {
+        $roleBadge = match($this->role) {
+            self::ROLE_ADMIN => '<span class="badge badge-admin">Admin</span>',
+            self::ROLE_USER => '<span class="badge badge-user">User</span>',
+            default => '<span class="badge badge-unknown">Unknown</span>',
+        };
+
+        return $this->name . ' ' . $roleBadge;
+    }
+
+    /**
+     * Get user's safe data for public display
+     */
+    public function getPublicDataAttribute(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'initials' => $this->initials(),
+            'company_name' => $this->company_name,
+            'role' => $this->role,
+            'status' => $this->status,
+            'created_at' => $this->created_at,
+            'is_online' => $this->last_login_at && $this->last_login_at->gt(now()->subMinutes(5)),
+        ];
+    }
+
+    /**
      * Bootstrap the model and its traits.
      */
     protected static function boot(): void
@@ -395,6 +757,25 @@ class User extends Authenticatable
             if (empty($user->status)) {
                 $user->status = self::STATUS_ACTIVE;
             }
+            if (empty($user->notification_settings)) {
+                $user->notification_settings = [
+                    'email' => [
+                        'order_updates' => true,
+                        'messages' => true,
+                        'system' => true,
+                    ],
+                    'push' => [
+                        'order_updates' => true,
+                        'messages' => true,
+                        'promotions' => false,
+                    ],
+                ];
+            }
+        });
+
+        // Generate avatar when user is created
+        static::created(function ($user) {
+            // You can add avatar generation logic here if needed
         });
     }
 }
