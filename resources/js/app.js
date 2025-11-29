@@ -1,7 +1,17 @@
 import './smooth-scroll';
 import '../css/app.css';
+import {
+    Star, Trophy, Crown, Check, Lock, Bookmark, Phone, MessageCircle,
+    Mail, ChevronRight, Loader2, AlertCircle, CheckCircle2, X
+} from 'lucide';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+
+// Register Lucide icons globally
+window.Lucide = {
+    Star, Trophy, Crown, Check, Lock, Bookmark, Phone, MessageCircle,
+    Mail, ChevronRight, Loader2, AlertCircle, CheckCircle2, X
+};
 
 window.Pusher = Pusher;
 
@@ -26,3 +36,15 @@ Livewire.on('new-notification', (data) => {
 if ('Notification' in window) {
     Notification.requestPermission();
 }
+
+// Initialize Lucide icons after Livewire updates
+document.addEventListener('livewire:init', () => {
+    // Icons will be initialized automatically by Lucide
+});
+
+document.addEventListener('livewire:navigated', () => {
+    // Re-initialize icons after navigation
+    if (window.LucideIcons) {
+        window.LucideIcons.replace();
+    }
+});

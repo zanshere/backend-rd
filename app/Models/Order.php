@@ -46,23 +46,27 @@ class Order extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'order_number',
-        'user_id',
-        'package_id',
-        'custom_package_name',
-        'custom_features',
-        'description',
-        'total_price',
-        'paid_amount',
-        'status',
-        'payment_status',
-        'progress_percentage',
-        'deadline',
-        'completed_at',
-        'admin_notes',
-        'customer_notes',
-        'special_requirements',
-    ];
+    'order_number',
+    'user_id',
+    'package_id',
+    'custom_package_name',
+    'custom_features',
+    'description',
+    'total_price',
+    'paid_amount',
+    'status',
+    'payment_status',
+    'payment_url',
+    'midtrans_transaction_id',
+    'midtrans_order_id',
+    'progress_percentage',
+    'deadline',
+    'completed_at',
+    'paid_at',
+    'admin_notes',
+    'customer_notes',
+    'special_requirements',
+];
 
     /**
      * The attributes that should be cast.
