@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\CheckRole;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,9 +11,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
-        $middleware ->prepend(CheckRole::class);
+        // Register middleware aliases
+        $middleware->alias([
+            'role' => App\Http\Middleware\CheckRole::class,
+            'admin' => App\Http\Middleware\AdminOnly::class,
+            'order.owner' => App\Http\Middleware\CheckOrderOwnership::class,
+            'user.role' => App\Http\Middleware\CheckUserRole::class,
+            'user.active' => App\Http\Middleware\UserActive::class,
+        ]);
+
+        // Global middleware that runs on every request
+        $middleware->web([
+            // Laravel default web middleware
+        ]);
+
+        // API middleware
+        $middleware->api([
+            // Laravel default API middleware
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Custom exception handling
     })->create();

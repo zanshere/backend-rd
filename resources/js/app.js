@@ -1,3 +1,5 @@
-import lenis from 'lenis';
-import { createIcons, icons } from 'lucide';
-import { motion } from 'motion';
+// Import Smooth Scroll
+import './smooth-scroll';
+
+// Import CSS
+import '../css/app.css';

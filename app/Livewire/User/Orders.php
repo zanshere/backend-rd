@@ -96,6 +96,8 @@ class Orders extends Component
      */
     public function render()
     {
-        return view('livewire.user.orders');
+        return view('livewire.user.orders', [
+            'orders' => $this->orders,
+        ]);
     }
 }

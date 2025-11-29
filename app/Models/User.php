@@ -72,16 +72,29 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the user's initials
+     * Get the user's initials - FIXED VERSION
      */
     public function initials(): string
     {
-        return Str::of($this->name)
-            ->explode(' ')
-            ->take(2)
-            ->map(fn ($word) => Str::substr($word, 0, 1))
-            ->implode('')
-            ->upper();
+        $name = $this->name;
+
+        // Handle empty name
+        if (empty($name)) {
+            return '??';
+        }
+
+        $words = explode(' ', $name);
+        $initials = '';
+
+        // Take first 2 words maximum
+        $maxWords = min(count($words), 2);
+        for ($i = 0; $i < $maxWords; $i++) {
+            if (!empty($words[$i])) {
+                $initials .= strtoupper(substr($words[$i], 0, 1));
+            }
+        }
+
+        return $initials;
     }
 
     /**

@@ -39,26 +39,31 @@
 
         <flux:navlist variant="outline">
             <flux:navlist.group :heading="__('Main Menu')" class="grid">
-                <flux:navlist.item icon="layout-grid" :href="route('dashboard')"
+                <flux:navlist.item icon="squares-2x2" :href="route('dashboard')"
                     :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navlist.item>
 
                 @if (auth()->user()->role === 'admin')
                     <!-- Admin Menu -->
-                    <flux:navlist.item icon="users" :href="route('admin.users')"
+                    <flux:navlist.item icon="user-group" :href="route('admin.users')"
                         :current="request()->routeIs('admin.users')" wire:navigate>
                         {{ __('Kelola User') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="package" :href="route('admin.orders')"
+
+                    <!-- PERBAIKAN: Gunakan icon shopping-cart yang tersedia -->
+                    <flux:navlist.item icon="shopping-cart" :href="route('admin.orders')"
                         :current="request()->routeIs('admin.orders')" wire:navigate>
                         {{ __('Pesanan Masuk') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="message-square" :href="route('admin.feedbacks')"
+
+                    <!-- PERBAIKAN: Gunakan icon chat-bubble-left-right yang tersedia -->
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('admin.feedbacks')"
                         :current="request()->routeIs('admin.feedbacks')" wire:navigate>
                         {{ __('Kritik & Saran') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar" :href="route('admin.analytics')"
+
+                    <flux:navlist.item icon="chart-bar-square" :href="route('admin.analytics')"
                         :current="request()->routeIs('admin.analytics')" wire:navigate>
                         {{ __('Analytics') }}
                     </flux:navlist.item>
@@ -68,11 +73,15 @@
                         :current="request()->routeIs('user.orders')" wire:navigate>
                         {{ __('Pesanan Saya') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="history" :href="route('user.history')"
+
+                    <!-- PERBAIKAN: Gunakan icon clock yang tersedia -->
+                    <flux:navlist.item icon="clock" :href="route('user.history')"
                         :current="request()->routeIs('user.history')" wire:navigate>
                         {{ __('Riwayat') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="message-square" :href="route('user.feedback')"
+
+                    <!-- PERBAIKAN: Gunakan icon chat-bubble-left-right yang tersedia -->
+                    <flux:navlist.item icon="chat-bubble-left-right" :href="route('user.feedback')"
                         :current="request()->routeIs('user.feedback')" wire:navigate>
                         {{ __('Kritik & Saran') }}
                     </flux:navlist.item>
@@ -85,20 +94,24 @@
                     :current="request()->routeIs('notifications')" wire:navigate>
                     {{ __('Notifikasi') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="mail" :href="route('messages')" :current="request()->routeIs('messages')"
+
+                <flux:navlist.item icon="envelope" :href="route('messages')" :current="request()->routeIs('messages')"
                     wire:navigate>
                     {{ __('Pesan') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="help-circle" :href="route('help')" wire:navigate>
+
+                <flux:navlist.item icon="question-mark-circle" :href="route('help')" wire:navigate>
                     {{ __('Bantuan') }}
                 </flux:navlist.item>
             </flux:navlist.group>
         </flux:navlist>
 
+        <flux:spacer />
+
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
             <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
-                icon:trailing="chevrons-up-down" data-test="sidebar-menu-button" />
+                icon:trailing="chevron-up-down" data-test="sidebar-menu-button" />
 
             <flux:menu class="w-[220px]">
                 <flux:menu.radio.group>
@@ -125,7 +138,7 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>{{ __('Pengaturan') }}
+                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Pengaturan') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
 
@@ -133,7 +146,7 @@
 
                 <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
-                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full"
+                    <flux:menu.item as="button" type="submit" icon="arrow-right-end-on-rectangle" class="w-full"
                         data-test="logout-button">
                         {{ __('Keluar') }}
                     </flux:menu.item>
@@ -144,7 +157,7 @@
 
     <!-- Mobile User Menu -->
     <flux:header class="lg:hidden">
-        <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+        <flux:sidebar.toggle class="lg:hidden" icon="bars-3" inset="left" />
 
         <flux:spacer />
 
@@ -176,7 +189,7 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>{{ __('Pengaturan') }}
+                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Pengaturan') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
 
@@ -184,7 +197,7 @@
 
                 <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
-                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full"
+                    <flux:menu.item as="button" type="submit" icon="arrow-right-end-on-rectangle" class="w-full"
                         data-test="logout-button">
                         {{ __('Keluar') }}
                     </flux:menu.item>
@@ -194,6 +207,15 @@
     </flux:header>
 
     {{ $slot }}
+
+    <!-- Lenis JS -->
+    <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.9/dist/lenis.min.js"></script>
+
+    <!-- Framer Motion -->
+    <script src="https://cdn.jsdelivr.net/npm/framer-motion@11.0.24/dist/framer-motion.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 
     <script>
         // Initialize Lucide Icons
@@ -210,13 +232,7 @@
             });
 
             // Sync Lenis with Framer Motion
-            lenis.on('scroll', ({
-                scroll,
-                limit,
-                velocity,
-                direction,
-                progress
-            }) => {
+            lenis.on('scroll', ({ scroll, limit, velocity, direction, progress }) => {
                 // You can use these values with Framer Motion if needed
             });
 

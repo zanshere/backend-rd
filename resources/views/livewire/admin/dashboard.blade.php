@@ -4,7 +4,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">
-                    Dashboard Admin 🎯
+                    Dashboard Admin
                 </h1>
                 <p class="text-zinc-600 dark:text-zinc-400 mt-2">
                     Kelola semua aktivitas sistem website service.

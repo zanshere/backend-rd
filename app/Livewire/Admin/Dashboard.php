@@ -32,11 +32,11 @@ class Dashboard extends Component
     private function loadStats(): void
     {
         $this->stats = [
-            'total_users' => User::regular()->count(),
+            'total_users' => User::where('role', User::ROLE_USER)->count(),
             'total_orders' => Order::count(),
-            'pending_orders' => Order::pending()->count(),
-            'revenue' => Order::completed()->sum('total_price'),
-            'new_feedbacks' => Feedback::pending()->count(),
+            'pending_orders' => Order::where('status', Order::STATUS_PENDING)->count(),
+            'revenue' => Order::where('status', Order::STATUS_COMPLETED)->sum('total_price'),
+            'new_feedbacks' => Feedback::where('status', Feedback::STATUS_PENDING)->count(),
         ];
     }
 
@@ -56,7 +56,7 @@ class Dashboard extends Component
      */
     private function loadRecentUsers(): void
     {
-        $this->recentUsers = User::regular()
+        $this->recentUsers = User::where('role', User::ROLE_USER)
             ->withCount('orders')
             ->latest()
             ->limit(5)
@@ -69,9 +69,13 @@ class Dashboard extends Component
     private function loadOrderStatusChart(): void
     {
         $this->orderStatusChart = [
-            'pending' => Order::pending()->count(),
-            'in_progress' => Order::inProgress()->count(),
-            'completed' => Order::completed()->count(),
+            'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
+            'in_progress' => Order::whereIn('status', [
+                Order::STATUS_ACCEPTED,
+                Order::STATUS_IN_PROGRESS,
+                Order::STATUS_REVISION
+            ])->count(),
+            'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
         ];
     }
@@ -81,7 +85,6 @@ class Dashboard extends Component
      */
     public function render()
     {
-        return view('livewire.admin.dashboard')
-            ->layout('layouts.app');
+        return view('livewire.admin.dashboard');
     }
 }

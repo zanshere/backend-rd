@@ -4,9 +4,10 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-class AdminOnly
+class UserActive
 {
     /**
      * Handle an incoming request.
@@ -23,12 +24,19 @@ class AdminOnly
             return redirect()->route('login');
         }
 
-        // Check if user is admin
-        if ($user->role === 'admin') {
-            return $next($request);
+        // Check if user account is active
+        if ($user->status !== 'active') {
+            // Use Auth facade for logout
+            Auth::logout();
+
+            // Clear the session
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')
+                ->with('error', 'Your account has been suspended or deactivated. Please contact administrator.');
         }
 
-        // If user is not admin, show 403 error
-        abort(403, 'Unauthorized action. Administrator access required.');
+        return $next($request);
     }
 }
