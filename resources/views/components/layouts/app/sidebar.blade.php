@@ -3,29 +3,6 @@
 
 <head>
     @include('partials.head')
-
-    <!-- Lenis CSS -->
-    <style>
-        html.lenis {
-            height: auto;
-        }
-
-        .lenis.lenis-smooth {
-            scroll-behavior: auto;
-        }
-
-        .lenis.lenis-smooth [data-lenis-prevent] {
-            overscroll-behavior: contain;
-        }
-
-        .lenis.lenis-stopped {
-            overflow: hidden;
-        }
-
-        .lenis.lenis-scrolling iframe {
-            pointer-events: none;
-        }
-    </style>
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800 lenis">
