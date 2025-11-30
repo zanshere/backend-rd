@@ -19,14 +19,13 @@
             <!-- Status Badge -->
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
                 @if($order->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
-                @elseif($order->status === 'accepted') bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                @elseif($order->status === 'progress') bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
-                @elseif($order->status === 'revision') bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400
+                @elseif($order->status === 'confirmed') bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400
+                @elseif($order->status === 'progress') bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400
                 @elseif($order->status === 'completed') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
                 @elseif($order->status === 'cancelled') bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
-                @elseif($order->status === 'rejected') bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                @elseif($order->status === 'draft') bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400
                 @endif">
-                {{ ucfirst($order->status) }}
+                {{ $this->displayStatus }}
             </span>
         </div>
     </div>
@@ -43,19 +42,19 @@
                 <div class="mb-6">
                     <div class="flex justify-between text-sm text-zinc-600 dark:text-zinc-400 mb-2">
                         <span>Progress Pengerjaan</span>
-                        <span>{{ $order->progress_percentage }}%</span>
+                        <span>{{ $order->progress_percentage ?? 0 }}%</span>
                     </div>
                     <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
                         <div
                             class="bg-blue-600 h-3 rounded-full transition-all duration-500"
-                            style="width: {{ $order->progress_percentage }}%"
+                            style="width: {{ $order->progress_percentage ?? 0 }}%"
                         ></div>
                     </div>
                 </div>
 
                 <!-- Progress Steps -->
                 <div class="space-y-4">
-                    @foreach($progressSteps as $step)
+                    @foreach($this->progressSteps as $step)
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
                                 @if($step['completed']) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
@@ -128,8 +127,10 @@
                             <button
                                 type="submit"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 self-end"
+                                wire:loading.attr="disabled"
                             >
-                                Tambah Update
+                                <span wire:loading.remove>Tambah Update</span>
+                                <span wire:loading>Memproses...</span>
                             </button>
                         </div>
                     </div>
@@ -137,21 +138,31 @@
 
                 <!-- Updates List -->
                 <div class="space-y-4">
-                    @foreach($order->progressUpdates->sortByDesc('created_at') as $update)
+                    @forelse($progressUpdates as $update)
                         <div class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-sm font-medium text-zinc-900 dark:text-white">
-                                    Progress: {{ $update->percentage }}%
+                                    Progress: {{ $update->progress_percentage }}%
                                 </div>
                                 <div class="text-xs text-zinc-500 dark:text-zinc-400">
                                     {{ $update->created_at->format('d M Y H:i') }}
                                 </div>
                             </div>
-                            <div class="text-sm text-zinc-700 dark:text-zinc-300">
-                                {{ $update->description }}
+                            @if($update->notes)
+                                <div class="text-sm text-zinc-700 dark:text-zinc-300">
+                                    {{ $update->notes }}
+                                </div>
+                            @endif
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                                Oleh: {{ $update->updater->name ?? 'System' }}
                             </div>
                         </div>
-                    @endforeach
+                    @empty
+                        <div class="text-center py-4 text-zinc-500 dark:text-zinc-400">
+                            <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2"></i>
+                            <p>Belum ada update progress</p>
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -171,15 +182,22 @@
 
                     <div>
                         <div class="text-xs text-zinc-500 dark:text-zinc-400">Paket</div>
-                        <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $order->package->name }}</div>
-                        @if($order->custom_package_name)
-                            <div class="text-xs text-zinc-500 dark:text-zinc-400">Custom: {{ $order->custom_package_name }}</div>
-                        @endif
+                        <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $order->package->name ?? 'Tidak Diketahui' }}</div>
+                    </div>
+
+                    <div>
+                        <div class="text-xs text-zinc-500 dark:text-zinc-400">Project</div>
+                        <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $order->project_name }}</div>
+                    </div>
+
+                    <div>
+                        <div class="text-xs text-zinc-500 dark:text-zinc-400">Domain</div>
+                        <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $order->domain_name }}.yourdomain.com</div>
                     </div>
 
                     <div>
                         <div class="text-xs text-zinc-500 dark:text-zinc-400">Total</div>
-                        <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $order->display_total_price }}</div>
+                        <div class="text-sm font-medium text-zinc-900 dark:text-white">Rp {{ number_format($order->total_price, 0, ',', '.') }}</div>
                     </div>
 
                     <div>
@@ -196,28 +214,21 @@
                 <div class="space-y-2">
                     @if($order->status === 'pending')
                         <button
-                            wire:click="updateStatus('accepted')"
+                            wire:click="updateStatus('confirmed')"
                             class="w-full flex items-center gap-2 px-3 py-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-sm"
                         >
                             <i data-lucide="check" class="w-4 h-4"></i>
-                            Terima Pesanan
+                            Konfirmasi Pesanan
                         </button>
+                    @elseif($order->status === 'confirmed')
                         <button
-                            wire:click="updateStatus('rejected')"
-                            class="w-full flex items-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm"
-                        >
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                            Tolak Pesanan
-                        </button>
-                    @elseif($order->status === 'accepted')
-                        <button
-                            wire:click="updateStatus('progress')"
+                            wire:click="updateStatus('in_progress')"
                             class="w-full flex items-center gap-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-sm"
                         >
                             <i data-lucide="play" class="w-4 h-4"></i>
                             Mulai Pengerjaan
                         </button>
-                    @elseif(in_array($order->status, ['progress', 'revision']))
+                    @elseif($order->status === 'in_progress')
                         <button
                             wire:click="updateStatus('completed')"
                             class="w-full flex items-center gap-2 px-3 py-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-sm"
@@ -225,16 +236,9 @@
                             <i data-lucide="check-circle" class="w-4 h-4"></i>
                             Tandai Selesai
                         </button>
-                        <button
-                            wire:click="updateStatus('revision')"
-                            class="w-full flex items-center gap-2 px-3 py-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg text-sm"
-                        >
-                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                            Minta Revisi
-                        </button>
                     @endif
 
-                    @if(!in_array($order->status, ['completed', 'cancelled', 'rejected']))
+                    @if(!in_array($order->status, ['completed', 'cancelled']))
                         <button
                             wire:click="updateStatus('cancelled')"
                             class="w-full flex items-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm"
@@ -279,3 +283,12 @@
         </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('livewire:initialized', function() {
+        // Initialize Lucide icons
+        if (window.Lucide) {
+            window.Lucide.createIcons();
+        }
+    });
+</script>

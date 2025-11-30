@@ -15,13 +15,9 @@ return new class extends Migration
             $table->string('order_number')->unique();
             $table->string('project_name');
             $table->string('domain_name');
-            $table->integer('duration')->default(1);
             $table->text('special_requirements')->nullable();
-            $table->json('addons')->nullable();
             $table->decimal('base_price', 15, 2)->default(0);
-            $table->decimal('addons_total', 15, 2)->default(0);
             $table->decimal('discount_amount', 15, 2)->default(0);
-            $table->decimal('training_fee', 15, 2)->default(0);
             $table->decimal('total_price', 15, 2)->default(0);
             $table->enum('status', ['draft', 'pending', 'confirmed', 'progress', 'completed', 'cancelled'])->default('pending');
             $table->enum('payment_status', ['pending', 'paid', 'failed', 'expired'])->default('pending');

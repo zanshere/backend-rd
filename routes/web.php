@@ -26,8 +26,7 @@ Route::get('/order', \App\Livewire\OrderLanding::class)
 Route::view('/packages', 'packages')
     ->name('packages');
 
-Route::view('/help', 'help')
-    ->name('help');
+Route::get('/help', \App\Livewire\Help::class)->name('help');
 
 // Authentication routes group
 Route::middleware(['auth'])->group(function () {
@@ -54,8 +53,8 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-    Route::get('/payment/{order}', \App\Livewire\Payment::class)->name('payment');
-    Route::get('/payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
+        Route::get('/payment/{order}', \App\Livewire\Payment::class)->name('payment');
+        Route::get('/payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
 
     // User routes - menggunakan role:user
     Route::middleware(['role:user'])->prefix('user')->name('user.')->group(function () {
@@ -80,6 +79,6 @@ Route::middleware(['auth'])->group(function () {
     // Common routes for both roles - menggunakan role:user,admin
     Route::middleware(['role:user,admin'])->group(function () {
         Route::get('/notifications', \App\Livewire\Common\Notifications::class)->name('notifications');
-        Route::get('/messages', \App\Livewire\Common\Messages::class)->name('messages');
+        Route::get('/messages', \App\Livewire\Common\Messages::class)->name('messages')->middleware(['auth', 'role:user,admin']);
     });
 });

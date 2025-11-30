@@ -16,22 +16,20 @@ class Order extends Model
     /**
      * Order status constants
      */
+    const STATUS_DRAFT = 'draft';
     const STATUS_PENDING = 'pending';
-    const STATUS_ACCEPTED = 'accepted';
+    const STATUS_CONFIRMED = 'confirmed';
     const STATUS_IN_PROGRESS = 'progress';
-    const STATUS_REVISION = 'revision';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
-    const STATUS_REJECTED = 'rejected';
 
     /**
      * Payment status constants
      */
     const PAYMENT_PENDING = 'pending';
     const PAYMENT_PAID = 'paid';
-    const PAYMENT_PARTIAL = 'partial';
     const PAYMENT_FAILED = 'failed';
-    const PAYMENT_REFUNDED = 'refunded';
+    const PAYMENT_EXPIRED = 'expired';
 
     /**
      * The table associated with the model.
@@ -46,27 +44,22 @@ class Order extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-    'order_number',
-    'user_id',
-    'package_id',
-    'custom_package_name',
-    'custom_features',
-    'description',
-    'total_price',
-    'paid_amount',
-    'status',
-    'payment_status',
-    'payment_url',
-    'midtrans_transaction_id',
-    'midtrans_order_id',
-    'progress_percentage',
-    'deadline',
-    'completed_at',
-    'paid_at',
-    'admin_notes',
-    'customer_notes',
-    'special_requirements',
-];
+        'order_number',
+        'user_id',
+        'package_id',
+        'project_name',
+        'domain_name',
+        'special_requirements',
+        'base_price',
+        'discount_amount',
+        'total_price',
+        'status',
+        'payment_status',
+        'payment_url',
+        'midtrans_transaction_id',
+        'midtrans_order_id',
+        'paid_at',
+    ];
 
     /**
      * The attributes that should be cast.
@@ -74,13 +67,11 @@ class Order extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'total_price' => 'decimal:0',
-        'paid_amount' => 'decimal:0',
-        'progress_percentage' => 'integer',
-        'deadline' => 'datetime',
-        'completed_at' => 'datetime',
-        'custom_features' => 'array',
+        'base_price' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'total_price' => 'decimal:2',
         'special_requirements' => 'array',
+        'paid_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -116,6 +107,22 @@ class Order extends Model
     }
 
     /**
+     * Get display base price
+     */
+    public function getDisplayBasePriceAttribute(): string
+    {
+        return 'Rp ' . number_format($this->base_price, 0, ',', '.');
+    }
+
+    /**
+     * Get display discount amount
+     */
+    public function getDisplayDiscountAmountAttribute(): string
+    {
+        return 'Rp ' . number_format($this->discount_amount, 0, ',', '.');
+    }
+
+    /**
      * Get display total price
      */
     public function getDisplayTotalPriceAttribute(): string
@@ -124,43 +131,11 @@ class Order extends Model
     }
 
     /**
-     * Get display paid amount
+     * Check if order is draft
      */
-    public function getDisplayPaidAmountAttribute(): string
+    public function isDraft(): bool
     {
-        return 'Rp ' . number_format($this->paid_amount, 0, ',', '.');
-    }
-
-    /**
-     * Get remaining payment amount
-     */
-    public function getRemainingPaymentAttribute(): float
-    {
-        return max(0, $this->total_price - $this->paid_amount);
-    }
-
-    /**
-     * Get display remaining payment
-     */
-    public function getDisplayRemainingPaymentAttribute(): string
-    {
-        return 'Rp ' . number_format($this->remaining_payment, 0, ',', '.');
-    }
-
-    /**
-     * Get progress percentage with default value
-     */
-    public function getProgressPercentageAttribute($value): int
-    {
-        return $value ?? 0;
-    }
-
-    /**
-     * Get paid amount with default value
-     */
-    public function getPaidAmountAttribute($value): float
-    {
-        return $value ?? 0;
+        return $this->status === self::STATUS_DRAFT;
     }
 
     /**
@@ -172,11 +147,11 @@ class Order extends Model
     }
 
     /**
-     * Check if order is accepted
+     * Check if order is confirmed
      */
-    public function isAccepted(): bool
+    public function isConfirmed(): bool
     {
-        return $this->status === self::STATUS_ACCEPTED;
+        return $this->status === self::STATUS_CONFIRMED;
     }
 
     /**
@@ -185,14 +160,6 @@ class Order extends Model
     public function isInProgress(): bool
     {
         return $this->status === self::STATUS_IN_PROGRESS;
-    }
-
-    /**
-     * Check if order is in revision
-     */
-    public function isRevision(): bool
-    {
-        return $this->status === self::STATUS_REVISION;
     }
 
     /**
@@ -212,14 +179,6 @@ class Order extends Model
     }
 
     /**
-     * Check if order is rejected
-     */
-    public function isRejected(): bool
-    {
-        return $this->status === self::STATUS_REJECTED;
-    }
-
-    /**
      * Check if order is paid
      */
     public function isPaid(): bool
@@ -236,35 +195,19 @@ class Order extends Model
     }
 
     /**
-     * Check if order payment is partial
+     * Check if order payment is failed
      */
-    public function isPaymentPartial(): bool
+    public function isPaymentFailed(): bool
     {
-        return $this->payment_status === self::PAYMENT_PARTIAL;
+        return $this->payment_status === self::PAYMENT_FAILED;
     }
 
     /**
-     * Check if order is overdue
+     * Check if order payment is expired
      */
-    public function isOverdue(): bool
+    public function isPaymentExpired(): bool
     {
-        return $this->deadline && $this->deadline->isPast() && !$this->isCompleted() && !$this->isCancelled();
-    }
-
-    /**
-     * Check if order has custom package
-     */
-    public function hasCustomPackage(): bool
-    {
-        return !empty($this->custom_package_name);
-    }
-
-    /**
-     * Check if order has custom features
-     */
-    public function hasCustomFeatures(): bool
-    {
-        return !empty($this->custom_features) && is_array($this->custom_features) && count($this->custom_features) > 0;
+        return $this->payment_status === self::PAYMENT_EXPIRED;
     }
 
     /**
@@ -276,6 +219,14 @@ class Order extends Model
     }
 
     /**
+     * Scope for draft orders
+     */
+    public function scopeDraft($query)
+    {
+        return $query->where('status', self::STATUS_DRAFT);
+    }
+
+    /**
      * Scope for pending orders
      */
     public function scopePending($query)
@@ -284,11 +235,11 @@ class Order extends Model
     }
 
     /**
-     * Scope for accepted orders
+     * Scope for confirmed orders
      */
-    public function scopeAccepted($query)
+    public function scopeConfirmed($query)
     {
-        return $query->where('status', self::STATUS_ACCEPTED);
+        return $query->where('status', self::STATUS_CONFIRMED);
     }
 
     /**
@@ -297,14 +248,6 @@ class Order extends Model
     public function scopeInProgress($query)
     {
         return $query->where('status', self::STATUS_IN_PROGRESS);
-    }
-
-    /**
-     * Scope for revision orders
-     */
-    public function scopeRevision($query)
-    {
-        return $query->where('status', self::STATUS_REVISION);
     }
 
     /**
@@ -324,28 +267,11 @@ class Order extends Model
     }
 
     /**
-     * Scope for rejected orders
-     */
-    public function scopeRejected($query)
-    {
-        return $query->where('status', self::STATUS_REJECTED);
-    }
-
-    /**
      * Scope for active orders (not completed or cancelled)
      */
     public function scopeActive($query)
     {
-        return $query->whereNotIn('status', [self::STATUS_COMPLETED, self::STATUS_CANCELLED, self::STATUS_REJECTED]);
-    }
-
-    /**
-     * Scope for overdue orders
-     */
-    public function scopeOverdue($query)
-    {
-        return $query->where('deadline', '<', now())
-                    ->whereNotIn('status', [self::STATUS_COMPLETED, self::STATUS_CANCELLED, self::STATUS_REJECTED]);
+        return $query->whereNotIn('status', [self::STATUS_COMPLETED, self::STATUS_CANCELLED]);
     }
 
     /**
@@ -362,14 +288,6 @@ class Order extends Model
     public function scopePaymentPaid($query)
     {
         return $query->where('payment_status', self::PAYMENT_PAID);
-    }
-
-    /**
-     * Scope for orders with partial payment
-     */
-    public function scopePaymentPartial($query)
-    {
-        return $query->where('payment_status', self::PAYMENT_PARTIAL);
     }
 
     /**
@@ -445,49 +363,11 @@ class Order extends Model
     }
 
     /**
-     * Update order progress
+     * Mark order as confirmed
      */
-    public function updateProgress(int $percentage, ?string $notes = null): ProgressUpdate
+    public function markAsConfirmed(): bool
     {
-        $this->progress_percentage = $percentage;
-
-        if ($percentage === 100) {
-            $this->status = self::STATUS_COMPLETED;
-            $this->completed_at = now();
-        }
-
-        $this->save();
-
-        // Get the authenticated user ID safely
-        $userId = auth()->id() ?? 1; // Fallback to admin user if not authenticated
-
-        // Create progress update record
-        return $this->progressUpdates()->create([
-            'progress_percentage' => $percentage,
-            'notes' => $notes,
-            'updated_by' => $userId,
-        ]);
-    }
-
-    /**
-     * Mark order as completed
-     */
-    public function markAsCompleted(): bool
-    {
-        $this->status = self::STATUS_COMPLETED;
-        $this->progress_percentage = 100;
-        $this->completed_at = now();
-
-        return $this->save();
-    }
-
-    /**
-     * Mark order as cancelled
-     */
-    public function markAsCancelled(): bool
-    {
-        $this->status = self::STATUS_CANCELLED;
-
+        $this->status = self::STATUS_CONFIRMED;
         return $this->save();
     }
 
@@ -497,29 +377,37 @@ class Order extends Model
     public function markAsInProgress(): bool
     {
         $this->status = self::STATUS_IN_PROGRESS;
-
         return $this->save();
     }
 
     /**
-     * Mark order as revision
+     * Mark order as completed
      */
-    public function markAsRevision(): bool
+    public function markAsCompleted(): bool
     {
-        $this->status = self::STATUS_REVISION;
+        $this->status = self::STATUS_COMPLETED;
+        return $this->save();
+    }
 
+    /**
+     * Mark order as cancelled
+     */
+    public function markAsCancelled(): bool
+    {
+        $this->status = self::STATUS_CANCELLED;
         return $this->save();
     }
 
     /**
      * Update payment status
      */
-    public function updatePaymentStatus(string $status, ?float $paidAmount = null): bool
+    public function updatePaymentStatus(string $status): bool
     {
         $this->payment_status = $status;
 
-        if ($paidAmount !== null) {
-            $this->paid_amount = $paidAmount;
+        if ($status === self::PAYMENT_PAID) {
+            $this->paid_at = now();
+            $this->status = self::STATUS_CONFIRMED;
         }
 
         return $this->save();
@@ -531,13 +419,12 @@ class Order extends Model
     public function getStatusBadgeColorAttribute(): string
     {
         return match($this->status) {
+            self::STATUS_DRAFT => 'gray',
             self::STATUS_PENDING => 'yellow',
-            self::STATUS_ACCEPTED => 'blue',
+            self::STATUS_CONFIRMED => 'blue',
             self::STATUS_IN_PROGRESS => 'indigo',
-            self::STATUS_REVISION => 'orange',
             self::STATUS_COMPLETED => 'green',
             self::STATUS_CANCELLED => 'red',
-            self::STATUS_REJECTED => 'gray',
             default => 'gray',
         };
     }
@@ -550,9 +437,8 @@ class Order extends Model
         return match($this->payment_status) {
             self::PAYMENT_PENDING => 'yellow',
             self::PAYMENT_PAID => 'green',
-            self::PAYMENT_PARTIAL => 'blue',
             self::PAYMENT_FAILED => 'red',
-            self::PAYMENT_REFUNDED => 'gray',
+            self::PAYMENT_EXPIRED => 'orange',
             default => 'gray',
         };
     }
@@ -563,13 +449,12 @@ class Order extends Model
     public function getStatusDisplayNameAttribute(): string
     {
         return match($this->status) {
-            self::STATUS_PENDING => 'Menunggu',
-            self::STATUS_ACCEPTED => 'Diterima',
+            self::STATUS_DRAFT => 'Draft',
+            self::STATUS_PENDING => 'Menunggu Konfirmasi',
+            self::STATUS_CONFIRMED => 'Dikonfirmasi',
             self::STATUS_IN_PROGRESS => 'Dalam Pengerjaan',
-            self::STATUS_REVISION => 'Revisi',
             self::STATUS_COMPLETED => 'Selesai',
             self::STATUS_CANCELLED => 'Dibatalkan',
-            self::STATUS_REJECTED => 'Ditolak',
             default => 'Tidak Diketahui',
         };
     }
@@ -582,42 +467,18 @@ class Order extends Model
         return match($this->payment_status) {
             self::PAYMENT_PENDING => 'Menunggu Pembayaran',
             self::PAYMENT_PAID => 'Lunas',
-            self::PAYMENT_PARTIAL => 'Pembayaran Sebagian',
             self::PAYMENT_FAILED => 'Pembayaran Gagal',
-            self::PAYMENT_REFUNDED => 'Dikembalikan',
+            self::PAYMENT_EXPIRED => 'Pembayaran Kadaluarsa',
             default => 'Tidak Diketahui',
         };
     }
 
     /**
-     * Get days remaining until deadline
-     */
-    public function getDaysRemainingAttribute(): ?int
-    {
-        if (!$this->deadline) {
-            return null;
-        }
-
-        $now = now();
-        $deadline = $this->deadline;
-
-        if ($deadline->isPast()) {
-            return 0;
-        }
-
-        return $now->diffInDays($deadline, false);
-    }
-
-    /**
-     * Get package name (fallback to custom package name)
+     * Get package name
      */
     public function getPackageNameAttribute(): string
     {
-        if ($this->package) {
-            return $this->package->name;
-        }
-
-        return $this->custom_package_name ?? 'Paket Kustom';
+        return $this->package->name ?? 'Paket Tidak Diketahui';
     }
 
     /**
@@ -645,18 +506,10 @@ class Order extends Model
     }
 
     /**
-     * Get formatted deadline
+     * Get formatted paid at
      */
-    public function getFormattedDeadlineAttribute(): ?string
+    public function getFormattedPaidAtAttribute(): ?string
     {
-        return $this->deadline?->format('d M Y');
-    }
-
-    /**
-     * Get formatted completed at
-     */
-    public function getFormattedCompletedAtAttribute(): ?string
-    {
-        return $this->completed_at?->format('d M Y H:i');
+        return $this->paid_at?->format('d M Y H:i');
     }
 }

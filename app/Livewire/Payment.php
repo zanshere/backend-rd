@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Order;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class Payment extends Component
 {
@@ -12,6 +13,7 @@ class Payment extends Component
     public $orderId;
     public $isProcessing = false;
     public $paymentUrl;
+    public $errorMessage = null;
 
     public function mount($order)
     {
@@ -21,7 +23,7 @@ class Payment extends Component
             ->where('user_id', auth()->id())
             ->firstOrFail();
 
-        // Jika belum ada payment URL, generate ke Midtrans
+        // Generate payment URL jika belum ada
         if (!$this->order->payment_url && $this->order->payment_status === Order::PAYMENT_PENDING) {
             $this->generatePaymentUrl();
         } else {
@@ -32,11 +34,17 @@ class Payment extends Component
     public function generatePaymentUrl()
     {
         $this->isProcessing = true;
+        $this->errorMessage = null;
 
         try {
-            // Midtrans API configuration
+            // Midtrans configuration
+            $merchantId = config('services.midtrans.merchant_id');
             $serverKey = config('services.midtrans.server_key');
-            $isProduction = config('services.midtrans.is_production');
+            $isProduction = config('services.midtrans.is_production', false);
+
+            if (!$merchantId || !$serverKey) {
+                throw new \Exception('Konfigurasi Midtrans belum lengkap. Silakan hubungi administrator.');
+            }
 
             $baseUrl = $isProduction
                 ? 'https://app.midtrans.com/snap/v1/transactions'
@@ -52,33 +60,29 @@ class Payment extends Component
             $customerDetails = [
                 'first_name' => auth()->user()->name,
                 'email' => auth()->user()->email,
+                'phone' => auth()->user()->phone ?? '081234567890',
             ];
 
-            // Prepare item details - main package
+            // Prepare item details
             $itemDetails = [
                 [
                     'id' => $this->order->package_id,
-                    'price' => (int) $this->order->package->base_price,
+                    'price' => (int) $this->order->base_price,
                     'quantity' => 1,
                     'name' => $this->order->package->name,
+                    'brand' => 'WebDev Company',
+                    'category' => 'Website Development',
+                    'merchant_name' => config('app.name', 'Laravel'),
                 ]
             ];
 
-            // Add custom features as additional items if any
-            $customFeatures = $this->order->custom_features ?? [];
-            foreach ($customFeatures as $feature) {
-                // Parse feature to see if it's an addon with price
-                if (str_contains($feature, 'Durasi layanan')) {
-                    // Duration is already included in base price calculation
-                    continue;
-                }
-
-                // Add other features as items with nominal price
+            // Add discount as item if exists
+            if ($this->order->discount_amount > 0) {
                 $itemDetails[] = [
-                    'id' => 'feature_' . uniqid(),
-                    'price' => 1000, // Nominal price for features
+                    'id' => 'discount',
+                    'price' => - (int) $this->order->discount_amount,
                     'quantity' => 1,
-                    'name' => $feature,
+                    'name' => 'Diskon ' . ($this->order->duration * 5) . '%',
                 ];
             }
 
@@ -91,34 +95,59 @@ class Payment extends Component
                     'finish' => route('payment.callback'),
                     'error' => route('payment.callback'),
                     'pending' => route('payment.callback'),
+                ],
+                'expiry' => [
+                    'start_time' => now()->format('Y-m-d H:i:s O'),
+                    'unit' => 'hours',
+                    'duration' => 24,
+                ],
+                'credit_card' => [
+                    'secure' => true,
+                    'bank' => 'bni',
                 ]
             ];
 
+            Log::info('Midtrans Payload:', $payload);
+
             // Make request to Midtrans
             $response = Http::withBasicAuth($serverKey, '')
+                ->timeout(30)
+                ->retry(3, 100)
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
+                    'User-Agent' => 'Laravel/' . app()->version(),
                 ])
                 ->post($baseUrl, $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
-                $this->paymentUrl = $data['redirect_url'];
 
-                // Update order with payment URL (you might want to add this field to your Order model)
-                // For now, we'll store it in session or you can add a payment_url field to orders table
-                Session::put('payment_url_' . $this->order->id, $this->paymentUrl);
+                if (isset($data['redirect_url'])) {
+                    $this->paymentUrl = $data['redirect_url'];
 
-                $this->dispatch('payment-url-generated');
+                    // Update order with payment URL and merchant info
+                    $this->order->update([
+                        'payment_url' => $this->paymentUrl,
+                        'midtrans_order_id' => $this->order->order_number,
+                        'midtrans_merchant_id' => $merchantId,
+                    ]);
+
+                    $this->dispatch('payment-url-generated');
+                    Log::info('Payment URL generated for order: ' . $this->order->order_number);
+                } else {
+                    throw new \Exception('URL redirect tidak ditemukan dalam respons Midtrans.');
+                }
             } else {
-                throw new \Exception('Failed to generate payment URL: ' . $response->body());
+                $errorResponse = $response->json();
+                Log::error('Midtrans API Error Response:', $errorResponse);
+                throw new \Exception('Midtrans API Error: ' . ($errorResponse['error_message'] ?? $response->body()));
             }
 
         } catch (\Exception $e) {
-            $this->dispatch('payment-error', [
-                'message' => 'Gagal menghasilkan URL pembayaran: ' . $e->getMessage()
-            ]);
+            Log::error('Payment URL Generation Error: ' . $e->getMessage());
+            $this->errorMessage = 'Gagal menghasilkan URL pembayaran: ' . $e->getMessage();
+            $this->dispatch('payment-error', ['message' => $this->errorMessage]);
         } finally {
             $this->isProcessing = false;
         }
@@ -127,15 +156,20 @@ class Payment extends Component
     public function proceedToPayment()
     {
         if ($this->paymentUrl) {
+            // Log sebelum redirect
+            Log::info('Redirecting to payment for order: ' . $this->order->order_number);
             return redirect()->away($this->paymentUrl);
+        } else {
+            $this->errorMessage = 'URL pembayaran tidak tersedia. Silakan refresh halaman.';
+            $this->dispatch('payment-error', ['message' => $this->errorMessage]);
         }
     }
 
-    public function checkPaymentStatus()
+    public function refreshPayment()
     {
-        // You can implement payment status checking here
-        // This would typically involve checking with Midtrans API
-        $this->dispatch('checking-payment');
+        $this->paymentUrl = null;
+        $this->errorMessage = null;
+        $this->generatePaymentUrl();
     }
 
     public function render()

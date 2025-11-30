@@ -15,11 +15,13 @@ class MessageRead implements ShouldBroadcast
 
     public $conversationId;
     public $userId;
+    public $messageIds;
 
-    public function __construct($conversationId, $userId)
+    public function __construct($conversationId, $userId, $messageIds = [])
     {
         $this->conversationId = $conversationId;
         $this->userId = $userId;
+        $this->messageIds = $messageIds;
     }
 
     public function broadcastOn()
@@ -27,11 +29,17 @@ class MessageRead implements ShouldBroadcast
         return new PresenceChannel('conversation.' . $this->conversationId);
     }
 
+    public function broadcastAs()
+    {
+        return 'message.read';
+    }
+
     public function broadcastWith()
     {
         return [
-            'conversationId' => $this->conversationId,
-            'userId' => $this->userId,
+            'conversation_id' => $this->conversationId,
+            'user_id' => $this->userId,
+            'message_ids' => $this->messageIds,
             'read_at' => now()->toISOString(),
         ];
     }

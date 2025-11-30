@@ -49,7 +49,8 @@ class Orders extends Component
         if (!empty($this->search)) {
             $query->where(function ($q) {
                 $q->where('order_number', 'like', "%{$this->search}%")
-                  ->orWhere('description', 'like', "%{$this->search}%")
+                  ->orWhere('project_name', 'like', "%{$this->search}%")
+                  ->orWhere('domain_name', 'like', "%{$this->search}%")
                   ->orWhereHas('package', function ($q) {
                       $q->where('name', 'like', "%{$this->search}%");
                   });
@@ -82,13 +83,81 @@ class Orders extends Component
     {
         return [
             'all' => 'Semua Status',
-            Order::STATUS_PENDING => 'Pending',
-            Order::STATUS_ACCEPTED => 'Diterima',
-            Order::STATUS_IN_PROGRESS => 'Dalam Progress',
-            Order::STATUS_REVISION => 'Revisi',
+            Order::STATUS_DRAFT => 'Draft',
+            Order::STATUS_PENDING => 'Menunggu Konfirmasi',
+            Order::STATUS_CONFIRMED => 'Dikonfirmasi',
+            Order::STATUS_IN_PROGRESS => 'Dalam Pengerjaan',
             Order::STATUS_COMPLETED => 'Selesai',
             Order::STATUS_CANCELLED => 'Dibatalkan',
         ];
+    }
+
+    /**
+     * Get status badge color
+     */
+    public function getStatusBadgeColor(string $status): string
+    {
+        return match($status) {
+            Order::STATUS_DRAFT => 'gray',
+            Order::STATUS_PENDING => 'yellow',
+            Order::STATUS_CONFIRMED => 'blue',
+            Order::STATUS_IN_PROGRESS => 'indigo',
+            Order::STATUS_COMPLETED => 'green',
+            Order::STATUS_CANCELLED => 'red',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Get payment status badge color
+     */
+    public function getPaymentStatusBadgeColor(string $paymentStatus): string
+    {
+        return match($paymentStatus) {
+            Order::PAYMENT_PENDING => 'yellow',
+            Order::PAYMENT_PAID => 'green',
+            Order::PAYMENT_FAILED => 'red',
+            Order::PAYMENT_EXPIRED => 'orange',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Check if order can be cancelled
+     */
+    public function canBeCancelled(Order $order): bool
+    {
+        return $order->isPending() && $order->isPaymentPending();
+    }
+
+    /**
+     * Get display status name
+     */
+    public function getDisplayStatus(string $status): string
+    {
+        return match($status) {
+            Order::STATUS_DRAFT => 'Draft',
+            Order::STATUS_PENDING => 'Menunggu Konfirmasi',
+            Order::STATUS_CONFIRMED => 'Dikonfirmasi',
+            Order::STATUS_IN_PROGRESS => 'Dalam Pengerjaan',
+            Order::STATUS_COMPLETED => 'Selesai',
+            Order::STATUS_CANCELLED => 'Dibatalkan',
+            default => 'Tidak Diketahui',
+        };
+    }
+
+    /**
+     * Get display payment status name
+     */
+    public function getDisplayPaymentStatus(string $paymentStatus): string
+    {
+        return match($paymentStatus) {
+            Order::PAYMENT_PENDING => 'Menunggu Pembayaran',
+            Order::PAYMENT_PAID => 'Lunas',
+            Order::PAYMENT_FAILED => 'Pembayaran Gagal',
+            Order::PAYMENT_EXPIRED => 'Pembayaran Kadaluarsa',
+            default => 'Tidak Diketahui',
+        };
     }
 
     /**

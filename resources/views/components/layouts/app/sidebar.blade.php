@@ -1,5 +1,9 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="user-id" content="{{ Auth::id() }}">
+<meta name="pusher-key" content="{{ config('broadcasting.connections.pusher.key') }}">
+<meta name="pusher-cluster" content="{{ config('broadcasting.connections.pusher.options.cluster') }}">
 
 <head>
     @include('partials.head')

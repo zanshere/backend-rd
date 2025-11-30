@@ -70,14 +70,80 @@ class Dashboard extends Component
     {
         $this->orderStatusChart = [
             'pending' => Order::where('status', Order::STATUS_PENDING)->count(),
-            'in_progress' => Order::whereIn('status', [
-                Order::STATUS_ACCEPTED,
-                Order::STATUS_IN_PROGRESS,
-                Order::STATUS_REVISION
-            ])->count(),
+            'confirmed' => Order::where('status', Order::STATUS_CONFIRMED)->count(),
+            'in_progress' => Order::where('status', Order::STATUS_IN_PROGRESS)->count(),
             'completed' => Order::where('status', Order::STATUS_COMPLETED)->count(),
             'cancelled' => Order::where('status', Order::STATUS_CANCELLED)->count(),
+            'draft' => Order::where('status', Order::STATUS_DRAFT)->count(),
         ];
+    }
+
+    /**
+     * Get status display name for chart
+     */
+    public function getStatusDisplayName($status): string
+    {
+        return match($status) {
+            'pending' => 'Menunggu Konfirmasi',
+            'confirmed' => 'Dikonfirmasi',
+            'in_progress' => 'Dalam Pengerjaan',
+            'completed' => 'Selesai',
+            'cancelled' => 'Dibatalkan',
+            'draft' => 'Draft',
+            default => 'Tidak Diketahui',
+        };
+    }
+
+    /**
+     * Get status badge color for chart
+     */
+    public function getStatusBadgeColor($status): string
+    {
+        return match($status) {
+            'pending' => 'yellow',
+            'confirmed' => 'blue',
+            'in_progress' => 'indigo',
+            'completed' => 'green',
+            'cancelled' => 'red',
+            'draft' => 'gray',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Get revenue growth percentage (example calculation)
+     */
+    public function getRevenueGrowthProperty(): float
+    {
+        // This is a simplified example - you might want to calculate actual growth
+        $currentMonthRevenue = Order::where('status', Order::STATUS_COMPLETED)
+            ->whereMonth('created_at', now()->month)
+            ->sum('total_price');
+
+        $previousMonthRevenue = Order::where('status', Order::STATUS_COMPLETED)
+            ->whereMonth('created_at', now()->subMonth()->month)
+            ->sum('total_price');
+
+        if ($previousMonthRevenue == 0) {
+            return $currentMonthRevenue > 0 ? 100 : 0;
+        }
+
+        return (($currentMonthRevenue - $previousMonthRevenue) / $previousMonthRevenue) * 100;
+    }
+
+    /**
+     * Get order growth percentage
+     */
+    public function getOrderGrowthProperty(): float
+    {
+        $currentMonthOrders = Order::whereMonth('created_at', now()->month)->count();
+        $previousMonthOrders = Order::whereMonth('created_at', now()->subMonth()->month)->count();
+
+        if ($previousMonthOrders == 0) {
+            return $currentMonthOrders > 0 ? 100 : 0;
+        }
+
+        return (($currentMonthOrders - $previousMonthOrders) / $previousMonthOrders) * 100;
     }
 
     /**
