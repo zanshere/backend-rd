@@ -22,7 +22,16 @@ return new class extends Migration
             $table->enum('role', ['admin', 'user'])->default('user');
             $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->timestamp('last_login_at')->nullable();
-             $table->json('notification_settings')->nullable();
+            $table->json('notification_settings')->nullable();
+
+            // Tambahkan kolom-kolom yang missing
+            $table->boolean('is_online')->default(false);
+            $table->string('timezone')->nullable()->default('Asia/Jakarta');
+            $table->string('language')->nullable()->default('id');
+            $table->string('currency')->nullable()->default('IDR');
+            $table->string('date_format')->nullable()->default('d/m/Y');
+            $table->string('time_format')->nullable()->default('H:i');
+
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

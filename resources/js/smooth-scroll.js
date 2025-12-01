@@ -10,12 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
         touchMultiplier: 2,
     });
 
-    // Sync Lenis with Framer Motion
-    lenis.on('scroll', ({ scroll, limit, velocity, direction, progress }) => {
-        // You can use these values with Framer Motion if needed
-        // For example, you can trigger animations based on scroll position
-    });
-
     function raf(time) {
         lenis.raf(time);
         requestAnimationFrame(raf);

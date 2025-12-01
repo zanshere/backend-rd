@@ -23,49 +23,31 @@ class Conversation extends Model
         'last_message_at' => 'datetime',
     ];
 
-    /**
-     * Get the first user in the conversation
-     */
     public function user1(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user1_id');
     }
 
-    /**
-     * Get the second user in the conversation
-     */
     public function user2(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user2_id');
     }
 
-    /**
-     * Get the order associated with the conversation
-     */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Get all messages in the conversation
-     */
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class)->latest();
     }
 
-    /**
-     * Get the last message in the conversation
-     */
     public function lastMessage()
     {
         return $this->hasOne(Message::class)->latestOfMany();
     }
 
-    /**
-     * Get the other user in the conversation relative to given user ID
-     */
     public function otherUser($userId = null)
     {
         if (!$userId) {
@@ -75,9 +57,6 @@ class Conversation extends Model
         return $userId == $this->user1_id ? $this->user2 : $this->user1;
     }
 
-    /**
-     * Get unread messages count for a specific user
-     */
     public function getUnreadCountForUser($userId)
     {
         return $this->messages()
@@ -86,20 +65,14 @@ class Conversation extends Model
             ->count();
     }
 
-    /**
-     * Scope to get conversations for a user
-     */
     public function scopeForUser($query, $userId)
     {
         return $query->where(function ($q) use ($userId) {
             $q->where('user1_id', $userId)
-              ->orWhere('user2_id', $userId);
+                ->orWhere('user2_id', $userId);
         });
     }
 
-    /**
-     * Scope to get conversations with another user
-     */
     public function scopeBetweenUsers($query, $user1Id, $user2Id)
     {
         return $query->where(function ($q) use ($user1Id, $user2Id) {
@@ -109,17 +82,11 @@ class Conversation extends Model
         });
     }
 
-    /**
-     * Check if a user is part of this conversation
-     */
     public function hasUser($userId): bool
     {
         return $this->user1_id == $userId || $this->user2_id == $userId;
     }
 
-    /**
-     * Get the participant that is not the given user
-     */
     public function getOtherParticipant($userId)
     {
         if ($this->user1_id == $userId) {
@@ -129,5 +96,77 @@ class Conversation extends Model
         }
 
         return null;
+    }
+
+    // New method for online status
+    public function getParticipantsOnlineStatus()
+    {
+        $user1Online = $this->user1->isOnline();
+        $user2Online = $this->user2->isOnline();
+
+        return [
+            $this->user1_id => $user1Online,
+            $this->user2_id => $user2Online,
+        ];
+    }
+
+    /**
+     * Get conversation data for serialization
+     *
+     * @return array
+     */
+    public function getSerializableDataAttribute(): array
+    {
+        return [
+            'id' => $this->id,
+            'user1_id' => $this->user1_id,
+            'user2_id' => $this->user2_id,
+            'order_id' => $this->order_id,
+            'title' => $this->title,
+            'last_message_at' => $this->last_message_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'user1' => $this->user1 ? $this->user1->serializable_data : null,
+            'user2' => $this->user2 ? $this->user2->serializable_data : null,
+            'order' => $this->order ? [
+                'id' => $this->order->id,
+                'order_number' => $this->order->order_number,
+                'user_id' => $this->order->user_id,
+                'package_id' => $this->order->package_id,
+                'status' => $this->order->status,
+                'total_price' => $this->order->total_price,
+                'created_at' => $this->order->created_at,
+                'updated_at' => $this->order->updated_at,
+            ] : null,
+        ];
+    }
+
+    /**
+     * Convert the model instance to an array.
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'user1_id' => $this->user1_id,
+            'user2_id' => $this->user2_id,
+            'order_id' => $this->order_id,
+            'title' => $this->title,
+            'last_message_at' => $this->last_message_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'user1' => $this->user1 ? $this->user1->toArray() : null,
+            'user2' => $this->user2 ? $this->user2->toArray() : null,
+            'order' => $this->order ? [
+                'id' => $this->order->id,
+                'order_number' => $this->order->order_number,
+                'user_id' => $this->order->user_id,
+                'package_id' => $this->order->package_id,
+                'status' => $this->order->status,
+                'total_price' => $this->order->total_price,
+            ] : null,
+        ];
     }
 }

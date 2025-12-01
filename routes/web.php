@@ -17,11 +17,14 @@ Route::get('/dashboard', function () {
         return view('dashboard');
     }
 })->middleware(['auth', 'verified'])
-  ->name('dashboard');
+    ->name('dashboard');
 
-// Public routes for ordering - UBAH INI
+// Public routes for ordering
 Route::get('/order', \App\Livewire\OrderLanding::class)
     ->name('landing-page');
+
+Route::get('/order/{package}', \App\Livewire\OrderLanding::class)
+    ->name('landing-page.package');
 
 Route::view('/packages', 'packages')
     ->name('packages');
@@ -53,15 +56,37 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-        Route::get('/payment/{order}', \App\Livewire\Payment::class)->name('payment');
-        Route::get('/payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
+    // Payment routes - menggunakan Livewire
+    Route::middleware(['auth', 'user.active'])->group(function () {
+        // Payment callback (POST untuk notifikasi dari Midtrans)
+        Route::post('/payment/callback', [App\Http\Controllers\PaymentController::class, 'callback'])
+            ->name('payment.callback');
+
+        // Payment finish URL (GET untuk redirect dari Midtrans)
+        Route::get('/payment/callback', [App\Http\Controllers\PaymentController::class, 'callbackFinish'])
+            ->name('payment.callback.finish');
+
+        // Payment success page
+        Route::get('/payment/success/{order}', \App\Livewire\PaymentSuccess::class)
+            ->name('payment.success');
+
+        // Payment failed page
+        Route::get('/payment/failed/{order}', \App\Livewire\PaymentFailed::class)
+            ->name('payment.failed');
+
+        // Payment pending page
+        Route::get('/payment/pending/{order}', \App\Livewire\PaymentPending::class)
+            ->name('payment.pending');
+
+        // Payment page (untuk proses pembayaran awal)
+        Route::get('/payment/{order}', \App\Livewire\Payment::class)->name('payment.page');
+    });
 
     // User routes - menggunakan role:user
     Route::middleware(['role:user'])->prefix('user')->name('user.')->group(function () {
         Route::get('/dashboard', \App\Livewire\User\Dashboard::class)->name('dashboard');
         Route::get('/orders', \App\Livewire\User\Orders::class)->name('orders');
         Route::get('/orders/{order}', \App\Livewire\User\OrderDetail::class)->name('order-detail');
-        Route::get('/order/{package?}', \App\Livewire\OrderLanding::class)->name('landing-page');
         Route::get('/history', \App\Livewire\User\History::class)->name('history');
         Route::get('/feedback', \App\Livewire\User\Feedback::class)->name('feedback');
     });

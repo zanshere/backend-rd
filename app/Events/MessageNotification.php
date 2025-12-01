@@ -3,7 +3,6 @@
 namespace App\Events;
 
 use App\Models\Message;
-use App\Models\User;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -55,6 +54,7 @@ class MessageNotification implements ShouldBroadcast
             'sender_id' => $sender->id,
             'sender_name' => $sender->name,
             'sender_initials' => $sender->initials(),
+            'sender_avatar_color' => $sender->avatar_color,
             'created_at' => now()->toISOString(),
             'data' => [
                 'conversation_id' => $conversation->id,
@@ -63,9 +63,12 @@ class MessageNotification implements ShouldBroadcast
                     'id' => $sender->id,
                     'name' => $sender->name,
                     'initials' => $sender->initials(),
+                    'avatar_color' => $sender->avatar_color,
+                    'is_online' => $sender->isOnline(),
                 ],
                 'preview' => \Illuminate\Support\Str::limit($message->content, 100),
+                'attachments_count' => $message->attachments->count(),
             ]
         ];
     }
-}   
+}

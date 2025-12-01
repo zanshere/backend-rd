@@ -4,7 +4,11 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "network": "node start-network.js",
+        "network-setup": "node network-setup.js",
+        "serve": "php artisan serve --host=0.0.0.0 --port=8000",
+        "serve:network": "node network-setup.js && npm run dev & npm run serve"
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.1.11",

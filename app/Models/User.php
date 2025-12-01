@@ -65,6 +65,8 @@ class User extends Authenticatable
         'currency',
         'date_format',
         'time_format',
+        'last_activity_at',
+        'is_online',
     ];
 
     /**
@@ -189,7 +191,7 @@ class User extends Authenticatable
      */
     public function receivesBroadcastNotificationsOn(): string
     {
-        return 'App.Models.User.'.$this->id;
+        return 'App.Models.User.' . $this->id;
     }
 
     /**
@@ -199,7 +201,7 @@ class User extends Authenticatable
      */
     public function presenceChannel(): string
     {
-        return 'user.'.$this->id.'.presence';
+        return 'user.' . $this->id . '.presence';
     }
 
     /**
@@ -209,7 +211,7 @@ class User extends Authenticatable
      */
     public function conversationsChannel(): string
     {
-        return 'user.'.$this->id.'.conversations';
+        return 'user.' . $this->id . '.conversations';
     }
 
     /**
@@ -290,9 +292,18 @@ class User extends Authenticatable
     public function getAvatarColorAttribute(): string
     {
         $colors = [
-            'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
-            'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500',
-            'bg-rose-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-500'
+            'bg-blue-500',
+            'bg-green-500',
+            'bg-purple-500',
+            'bg-pink-500',
+            'bg-indigo-500',
+            'bg-teal-500',
+            'bg-orange-500',
+            'bg-cyan-500',
+            'bg-rose-500',
+            'bg-amber-500',
+            'bg-lime-500',
+            'bg-emerald-500'
         ];
 
         $index = $this->id % count($colors);
@@ -324,7 +335,7 @@ class User extends Authenticatable
     public function isOnline(): bool
     {
         return $this->last_activity_at &&
-               $this->last_activity_at->gt(now()->subMinutes(5));
+            $this->last_activity_at->gt(now()->subMinutes(5));
     }
 
     /**
@@ -361,6 +372,62 @@ class User extends Authenticatable
         $this->last_activity_at = now();
         $this->is_online = true;
         return $this->save();
+    }
+
+    /**
+     * Get user data for serialization (to avoid Serialization of 'Closure' error)
+     *
+     * @return array
+     */
+    public function getSerializableDataAttribute(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'role' => $this->role,
+            'status' => $this->status,
+            'company_name' => $this->company_name,
+            'company_address' => $this->company_address,
+            'initials' => $this->initials,
+            'is_online' => $this->isOnline(),
+            'last_seen' => $this->last_activity_at?->diffForHumans() ?? $this->last_login_at?->diffForHumans(),
+            'avatar_color' => $this->avatar_color,
+            'avatar_url' => $this->avatar_url,
+            'last_login_at' => $this->last_login_at,
+            'last_activity_at' => $this->last_activity_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
+    }
+
+    /**
+     * Convert the model instance to an array.
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'role' => $this->role,
+            'status' => $this->status,
+            'company_name' => $this->company_name,
+            'company_address' => $this->company_address,
+            'initials' => $this->initials,
+            'is_online' => $this->isOnline(),
+            'last_seen' => $this->last_activity_at?->diffForHumans() ?? $this->last_login_at?->diffForHumans(),
+            'avatar_color' => $this->avatar_color,
+            'avatar_url' => $this->avatar_url,
+            'last_login_at' => $this->last_login_at,
+            'last_activity_at' => $this->last_activity_at,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
     }
 
     /**
@@ -480,7 +547,7 @@ class User extends Authenticatable
      */
     public function getRoleDisplayAttribute(): string
     {
-        return match($this->role) {
+        return match ($this->role) {
             self::ROLE_SUPER_ADMIN => 'Super Administrator',
             self::ROLE_ADMIN => 'Administrator',
             self::ROLE_USER => 'User',
@@ -495,7 +562,7 @@ class User extends Authenticatable
      */
     public function getStatusDisplayAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             self::STATUS_ACTIVE => 'Aktif',
             self::STATUS_INACTIVE => 'Tidak Aktif',
             self::STATUS_SUSPENDED => 'Ditangguhkan',
@@ -511,7 +578,7 @@ class User extends Authenticatable
      */
     public function getStatusBadgeColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             self::STATUS_ACTIVE => 'green',
             self::STATUS_INACTIVE => 'gray',
             self::STATUS_SUSPENDED => 'red',
@@ -527,7 +594,7 @@ class User extends Authenticatable
      */
     public function getRoleBadgeColorAttribute(): string
     {
-        return match($this->role) {
+        return match ($this->role) {
             self::ROLE_SUPER_ADMIN => 'purple',
             self::ROLE_ADMIN => 'blue',
             self::ROLE_USER => 'green',
@@ -736,7 +803,7 @@ class User extends Authenticatable
      */
     public function getDisplayNameWithRoleAttribute(): string
     {
-        $roleBadge = match($this->role) {
+        $roleBadge = match ($this->role) {
             self::ROLE_SUPER_ADMIN => '<span class="badge badge-super-admin">Super Admin</span>',
             self::ROLE_ADMIN => '<span class="badge badge-admin">Admin</span>',
             self::ROLE_USER => '<span class="badge badge-user">User</span>',
@@ -881,12 +948,12 @@ class User extends Authenticatable
      */
     public function conversationWith(User $otherUser): ?Conversation
     {
-        return Conversation::where(function($query) use ($otherUser) {
+        return Conversation::where(function ($query) use ($otherUser) {
             $query->where('user1_id', $this->id)
-                  ->where('user2_id', $otherUser->id);
-        })->orWhere(function($query) use ($otherUser) {
+                ->where('user2_id', $otherUser->id);
+        })->orWhere(function ($query) use ($otherUser) {
             $query->where('user1_id', $otherUser->id)
-                  ->where('user2_id', $this->id);
+                ->where('user2_id', $this->id);
         })->first();
     }
 
@@ -933,7 +1000,7 @@ class User extends Authenticatable
         return $this->conversations()
             ->whereHas('messages', function ($query) {
                 $query->where('sender_id', '!=', $this->id)
-                      ->whereNull('read_at');
+                    ->whereNull('read_at');
             })
             ->count();
     }
@@ -964,7 +1031,7 @@ class User extends Authenticatable
             ->with(['user1', 'user2', 'lastMessage'])
             ->withCount(['messages as unread_count' => function ($query) {
                 $query->where('sender_id', '!=', $this->id)
-                      ->whereNull('read_at');
+                    ->whereNull('read_at');
             }])
             ->orderBy('last_message_at', 'desc')
             ->limit($limit)
@@ -991,7 +1058,7 @@ class User extends Authenticatable
             ->with(['user1', 'user2', 'lastMessage'])
             ->withCount(['messages as unread_count' => function ($query) {
                 $query->where('sender_id', '!=', $this->id)
-                      ->whereNull('read_at');
+                    ->whereNull('read_at');
             }])
             ->orderBy('last_message_at', 'desc')
             ->get()
@@ -1043,11 +1110,11 @@ class User extends Authenticatable
     {
         return Message::whereHas('conversation', function ($query) {
             $query->where('user1_id', $this->id)
-                  ->orWhere('user2_id', $this->id);
+                ->orWhere('user2_id', $this->id);
         })
-        ->where('sender_id', '!=', $this->id)
-        ->whereNull('read_at')
-        ->count();
+            ->where('sender_id', '!=', $this->id)
+            ->whereNull('read_at')
+            ->count();
     }
 
     /**
@@ -1312,7 +1379,7 @@ class User extends Authenticatable
     public function scopeOnline($query)
     {
         return $query->where('is_online', true)
-                     ->orWhere('last_activity_at', '>=', now()->subMinutes(5));
+            ->orWhere('last_activity_at', '>=', now()->subMinutes(5));
     }
 
     /**
@@ -1324,10 +1391,10 @@ class User extends Authenticatable
     public function scopeOffline($query)
     {
         return $query->where('is_online', false)
-                     ->where(function($q) {
-                         $q->whereNull('last_activity_at')
-                           ->orWhere('last_activity_at', '<', now()->subMinutes(5));
-                     });
+            ->where(function ($q) {
+                $q->whereNull('last_activity_at')
+                    ->orWhere('last_activity_at', '<', now()->subMinutes(5));
+            });
     }
 
     /**

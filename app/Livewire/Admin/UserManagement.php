@@ -55,9 +55,9 @@ class UserManagement extends Component
             })
             ->when($this->statusFilter, function ($query) {
                 if ($this->statusFilter === 'active') {
-                    $query->where('status', true);
+                    $query->where('status', 'active');
                 } elseif ($this->statusFilter === 'inactive') {
-                    $query->where('status', false);
+                    $query->where('status', 'inactive');
                 }
             })
             ->orderBy('created_at', 'desc')
@@ -74,6 +74,10 @@ class UserManagement extends Component
             });
 
             session()->flash('message', 'Role user berhasil diubah.');
+
+            // Refresh component
+            $this->dispatch('refresh-component');
+
         } catch (\Exception $e) {
             session()->flash('error', 'Gagal mengubah role user: ' . $e->getMessage());
         }
@@ -84,11 +88,15 @@ class UserManagement extends Component
         try {
             DB::transaction(function () use ($userId) {
                 $user = User::findOrFail($userId);
-                $user->status = !$user->status;
+                $user->status = $user->status === 'active' ? 'inactive' : 'active';
                 $user->save();
             });
 
             session()->flash('message', 'Status user berhasil diubah.');
+
+            // Refresh component
+            $this->dispatch('refresh-component');
+
         } catch (\Exception $e) {
             session()->flash('error', 'Gagal mengubah status user: ' . $e->getMessage());
         }
@@ -109,6 +117,10 @@ class UserManagement extends Component
             });
 
             session()->flash('message', 'User berhasil dihapus.');
+
+            // Refresh component
+            $this->dispatch('refresh-component');
+
         } catch (\Exception $e) {
             session()->flash('error', 'Gagal menghapus user: ' . $e->getMessage());
         }

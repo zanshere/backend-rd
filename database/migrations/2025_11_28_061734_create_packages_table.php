@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('base_price', 15, 0)->default(0);
             $table->boolean('is_custom_price')->default(false); // Tambahkan ini
             $table->json('features')->nullable();
-            $table->integer('delivery_time')->default(14)->comment('Delivery time in days');
+            $table->integer('delivery_time')->default(30)->comment('Delivery time in days');
             $table->integer('revision_limit')->default(3);
             $table->boolean('is_active')->default(true);
             $table->integer('sort_order')->default(0);

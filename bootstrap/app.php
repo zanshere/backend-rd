@@ -22,7 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Global middleware that runs on every request
         $middleware->web([
-            // Laravel default web middleware
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\UpdateUserActivity::class,
+            \App\Http\Middleware\PollingMiddleware::class,
         ]);
 
         // API middleware
@@ -32,4 +37,23 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Custom exception handling
-    })->create();
+        $exceptions->render(function (Throwable $e, $request) {
+            if ($e instanceof \Livewire\Exceptions\MethodNotFoundException) {
+                return response()->json([
+                    'error' => 'Method not found',
+                    'message' => $e->getMessage(),
+                    'trace' => config('app.debug') ? $e->getTrace() : null,
+                ], 404);
+            }
+
+            // Jangan panggil parent di sini, biarkan Laravel menangani exception lainnya
+            return null;
+        });
+    })
+    ->withProviders([
+        // Register service providers
+        App\Providers\BroadcastServiceProvider::class,
+        App\Providers\ScheduleServiceProvider::class,
+        App\Providers\AppServiceProvider::class,
+    ])
+    ->create();

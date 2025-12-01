@@ -1,9 +1,5 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<meta name="user-id" content="{{ Auth::id() }}">
-<meta name="pusher-key" content="{{ config('broadcasting.connections.pusher.key') }}">
-<meta name="pusher-cluster" content="{{ config('broadcasting.connections.pusher.options.cluster') }}">
 
 <head>
     @include('partials.head')
@@ -42,11 +38,6 @@
                     <flux:navlist.item icon="chat-bubble-left-right" :href="route('admin.feedbacks')"
                         :current="request()->routeIs('admin.feedbacks')" wire:navigate>
                         {{ __('Kritik & Saran') }}
-                    </flux:navlist.item>
-
-                    <flux:navlist.item icon="chart-bar-square" :href="route('admin.analytics')"
-                        :current="request()->routeIs('admin.analytics')" wire:navigate>
-                        {{ __('Analytics') }}
                     </flux:navlist.item>
                 @else
                     <!-- User Menu -->
@@ -119,7 +110,8 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Pengaturan') }}
+                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>
+                        {{ __('Pengaturan') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
 
@@ -170,7 +162,8 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Pengaturan') }}
+                    <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>
+                        {{ __('Pengaturan') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
 
@@ -189,11 +182,8 @@
 
     {{ $slot }}
 
-    <!-- Lenis JS -->
-    <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.9/dist/lenis.min.js"></script>
-
-    <!-- Framer Motion -->
-    <script src="https://cdn.jsdelivr.net/npm/framer-motion@11.0.24/dist/framer-motion.min.js"></script>
+    <!-- Lenis -->
+    <script src="https://unpkg.com/lenis@1.3.15/dist/lenis.min.js"></script>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
@@ -213,7 +203,13 @@
             });
 
             // Sync Lenis with Framer Motion
-            lenis.on('scroll', ({ scroll, limit, velocity, direction, progress }) => {
+            lenis.on('scroll', ({
+                scroll,
+                limit,
+                velocity,
+                direction,
+                progress
+            }) => {
                 // You can use these values with Framer Motion if needed
             });
 

@@ -58,6 +58,9 @@ class Order extends Model
         'payment_url',
         'midtrans_transaction_id',
         'midtrans_order_id',
+        'midtrans_merchant_id',
+        'paid_amount',
+        'admin_notes',
         'paid_at',
     ];
 
@@ -67,9 +70,10 @@ class Order extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'base_price' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'total_price' => 'decimal:2',
+        'base_price' => 'decimal:0',
+        'discount_amount' => 'decimal:0',
+        'total_price' => 'decimal:0',
+        'paid_amount' => 'decimal:0',
         'special_requirements' => 'array',
         'paid_at' => 'datetime',
         'created_at' => 'datetime',
@@ -107,6 +111,29 @@ class Order extends Model
     }
 
     /**
+     * Get the overall progress percentage
+     */
+    public function getOverallProgressAttribute(): int
+    {
+        // Jika ada progress updates dari tabel progress_updates
+        if ($this->progressUpdates()->exists()) {
+            $latestProgress = $this->progressUpdates()->latest()->first();
+            return $latestProgress->progress_percentage;
+        }
+
+        // Default progress berdasarkan status
+        return match($this->status) {
+            self::STATUS_DRAFT => 0,
+            self::STATUS_PENDING => 10,
+            self::STATUS_CONFIRMED => 30,
+            self::STATUS_IN_PROGRESS => 60,
+            self::STATUS_COMPLETED => 100,
+            self::STATUS_CANCELLED => 0,
+            default => 0,
+        };
+    }
+
+    /**
      * Get display base price
      */
     public function getDisplayBasePriceAttribute(): string
@@ -128,6 +155,14 @@ class Order extends Model
     public function getDisplayTotalPriceAttribute(): string
     {
         return 'Rp ' . number_format($this->total_price, 0, ',', '.');
+    }
+
+    /**
+     * Get display paid amount
+     */
+    public function getDisplayPaidAmountAttribute(): string
+    {
+        return $this->paid_amount ? 'Rp ' . number_format($this->paid_amount, 0, ',', '.') : '-';
     }
 
     /**
@@ -401,13 +436,16 @@ class Order extends Model
     /**
      * Update payment status
      */
-    public function updatePaymentStatus(string $status): bool
+    public function updatePaymentStatus(string $status, ?float $amount = null): bool
     {
         $this->payment_status = $status;
 
         if ($status === self::PAYMENT_PAID) {
             $this->paid_at = now();
-            $this->status = self::STATUS_CONFIRMED;
+            $this->paid_amount = $amount ?? $this->total_price;
+            if ($this->status === self::STATUS_PENDING) {
+                $this->status = self::STATUS_CONFIRMED;
+            }
         }
 
         return $this->save();
@@ -482,6 +520,14 @@ class Order extends Model
     }
 
     /**
+     * Get package type
+     */
+    public function getPackageTypeAttribute(): string
+    {
+        return $this->package->type ?? 'unknown';
+    }
+
+    /**
      * Get customer name
      */
     public function getCustomerNameAttribute(): string
@@ -512,4 +558,93 @@ class Order extends Model
     {
         return $this->paid_at?->format('d M Y H:i');
     }
+
+    /**
+     * Get special requirements as text
+     */
+    public function getSpecialRequirementsTextAttribute(): ?string
+    {
+        if (!$this->hasSpecialRequirements()) {
+            return null;
+        }
+
+        return $this->special_requirements['kebutuhan_khusus'] ?? implode(', ', $this->special_requirements);
+    }
+
+    /**
+     * Get order timeline events
+     */
+    public function getTimelineEventsAttribute(): array
+    {
+        $events = [];
+
+        // Order created
+        $events[] = [
+            'title' => 'Pesanan Dibuat',
+            'description' => 'Pesanan berhasil dibuat',
+            'date' => $this->created_at,
+            'icon' => 'shopping-cart',
+            'color' => 'blue',
+        ];
+
+        // Payment events
+        if ($this->paid_at) {
+            $events[] = [
+                'title' => 'Pembayaran Berhasil',
+                'description' => 'Pembayaran telah diterima',
+                'date' => $this->paid_at,
+                'icon' => 'credit-card',
+                'color' => 'green',
+            ];
+        }
+
+        // Status changes
+        if ($this->status !== self::STATUS_DRAFT && $this->status !== self::STATUS_PENDING) {
+            $events[] = [
+                'title' => 'Pesanan Diproses',
+                'description' => 'Pesanan sedang diproses oleh tim',
+                'date' => $this->updated_at,
+                'icon' => 'settings',
+                'color' => 'indigo',
+            ];
+        }
+
+        // Progress updates
+        foreach ($this->progressUpdates()->orderBy('created_at', 'desc')->get() as $progress) {
+            $events[] = [
+                'title' => 'Update Progress: ' . $progress->progress_label,
+                'description' => $progress->notes ?? 'Progress diperbarui',
+                'date' => $progress->created_at,
+                'icon' => 'activity',
+                'color' => 'purple',
+            ];
+        }
+
+        // Sort by date
+        usort($events, function($a, $b) {
+            return $b['date'] <=> $a['date'];
+        });
+
+        return $events;
+    }
+
+    /**
+     * Check if order can be cancelled
+     */
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_PENDING])
+            && $this->payment_status !== self::PAYMENT_PAID;
+    }
+
+    /**
+     * Check if order requires payment
+     */
+    public function requiresPayment(): bool
+    {
+        return $this->payment_status === self::PAYMENT_PENDING
+            && !$this->package->is_custom_price;
+    }
+
+
 }

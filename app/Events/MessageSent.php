@@ -41,11 +41,16 @@ class MessageSent implements ShouldBroadcast
                 'conversation_id' => $this->message->conversation_id,
                 'created_at' => $this->message->created_at->toISOString(),
                 'read_at' => $this->message->read_at?->toISOString(),
+                'is_read' => $this->message->is_read,
+                'delivery_status' => $this->message->delivery_status,
+                'formatted_time' => $this->message->formatted_time,
                 'sender' => [
                     'id' => $this->message->sender->id,
                     'name' => $this->message->sender->name,
                     'email' => $this->message->sender->email,
                     'initials' => $this->message->sender->initials(),
+                    'avatar_color' => $this->message->sender->avatar_color,
+                    'is_online' => $this->message->sender->isOnline(),
                 ],
                 'attachments' => $this->message->attachments->map(function ($attachment) {
                     return [
@@ -54,6 +59,8 @@ class MessageSent implements ShouldBroadcast
                         'path' => $attachment->path,
                         'size' => $attachment->size,
                         'mime_type' => $attachment->mime_type,
+                        'url' => $attachment->url,
+                        'extension' => $attachment->extension,
                     ];
                 })->toArray(),
             ],

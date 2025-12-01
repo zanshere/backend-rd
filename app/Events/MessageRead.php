@@ -41,6 +41,10 @@ class MessageRead implements ShouldBroadcast
             'user_id' => $this->userId,
             'message_ids' => $this->messageIds,
             'read_at' => now()->toISOString(),
+            'read_by' => [
+                'id' => $this->userId,
+                'name' => \App\Models\User::find($this->userId)->name ?? 'Unknown',
+            ]
         ];
     }
 }

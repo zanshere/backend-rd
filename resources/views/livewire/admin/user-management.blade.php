@@ -22,7 +22,7 @@
                     <input
                         type="text"
                         id="search"
-                        wire:model.live="search"
+                        wire:model.live.debounce.300ms="search"
                         class="block w-full pl-10 pr-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                         placeholder="Cari nama atau email..."
                     />
@@ -115,10 +115,10 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                        @if($user->is_active) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                                        @if($user->status === 'active') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
                                         @else bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
                                         @endif">
-                                        {{ $user->is_active ? 'Aktif' : 'Nonaktif' }}
+                                        {{ $user->status === 'active' ? 'Aktif' : 'Nonaktif' }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
@@ -129,27 +129,40 @@
                                         <!-- Edit Role -->
                                         <button
                                             wire:click="toggleRole({{ $user->id }})"
-                                            class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 text-xs"
+                                            wire:loading.attr="disabled"
+                                            class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 text-xs disabled:opacity-50"
                                             title="{{ $user->role === 'admin' ? 'Jadikan User' : 'Jadikan Admin' }}"
                                         >
                                             <i data-lucide="shield" class="w-4 h-4"></i>
-                                            {{ $user->role === 'admin' ? 'User' : 'Admin' }}
+                                            <span wire:loading.remove>
+                                                {{ $user->role === 'admin' ? 'Jadikan User' : 'Jadikan Admin' }}
+                                            </span>
+                                            <span wire:loading class="hidden">
+                                                <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                                                Memproses...
+                                            </span>
                                         </button>
 
                                         <!-- Toggle Status -->
                                         <button
                                             wire:click="toggleStatus({{ $user->id }})"
-                                            class="{{ $user->is_active ? 'text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300' : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300' }} flex items-center gap-1 text-xs"
-                                            title="{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }}"
+                                            wire:loading.attr="disabled"
+                                            class="{{ $user->status === 'active' ? 'text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300' : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300' }} flex items-center gap-1 text-xs disabled:opacity-50"
+                                            title="{{ $user->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}"
                                         >
-                                            <i data-lucide="{{ $user->is_active ? 'pause' : 'play' }}" class="w-4 h-4"></i>
-                                            {{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                            <i data-lucide="{{ $user->status === 'active' ? 'pause' : 'play' }}" class="w-4 h-4"></i>
+                                            <span wire:loading.remove>
+                                                {{ $user->status === 'active' ? 'Nonaktifkan' : 'Aktifkan' }}
+                                            </span>
+                                            <span wire:loading class="hidden">
+                                                <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                                                Memproses...
+                                            </span>
                                         </button>
 
                                         <!-- Delete -->
                                         <button
-                                            wire:click="confirmDelete({{ $user->id }})"
-                                            wire:confirm="Apakah Anda yakin ingin menghapus user {{ $user->name }}?"
+                                            onclick="confirmDelete({{ $user->id }}, '{{ $user->name }}')"
                                             class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 text-xs"
                                             title="Hapus User"
                                         >
@@ -193,7 +206,7 @@
             x-show="show"
             x-transition
             x-init="setTimeout(() => show = false, 3000)"
-            class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg"
+            class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
         >
             <div class="flex items-center gap-2">
                 <i data-lucide="check-circle" class="w-5 h-5"></i>
@@ -208,7 +221,7 @@
             x-show="show"
             x-transition
             x-init="setTimeout(() => show = false, 3000)"
-            class="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg"
+            class="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
         >
             <div class="flex items-center gap-2">
                 <i data-lucide="alert-circle" class="w-5 h-5"></i>
@@ -226,5 +239,16 @@
                 lucide.createIcons();
             }
         });
+
+        // Listen for refresh event
+        Livewire.on('refresh-component', () => {
+            Livewire.dispatch('refresh');
+        });
     });
+
+    function confirmDelete(userId, userName) {
+        if (confirm(`Apakah Anda yakin ingin menghapus user "${userName}"?`)) {
+            @this.call('confirmDelete', userId);
+        }
+    }
 </script>
