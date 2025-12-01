@@ -48,7 +48,7 @@ class PaymentController extends Controller
             // Find order by order_number (Midtrans order_id)
             $order = Order::where('order_number', $orderId)->first();
 
-            if (! $order) {
+            if (!$order) {
                 Log::error('Order not found for callback - Order Number: '.$orderId);
 
                 return response()->json(['status' => 'error', 'message' => 'Order not found'], 404);
@@ -61,15 +61,6 @@ class PaymentController extends Controller
                 'current_order_status' => $order->status,
             ]);
 
-            // Verify signature (optional but recommended)
-            // $serverKey = config('services.midtrans.server_key');
-            // $expectedSignature = hash('sha512', $orderId . $statusCode . $grossAmount . $serverKey);
-
-            // if ($signatureKey !== $expectedSignature) {
-            //     Log::error('Invalid signature for order: ' . $orderId);
-            //     return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 403);
-            // }
-
             DB::beginTransaction();
 
             $previousPaymentStatus = $order->payment_status;
@@ -77,46 +68,6 @@ class PaymentController extends Controller
 
             // Update order based on transaction status
             switch ($transactionStatus) {
-                case 'capture':
-                    if ($fraudStatus == 'challenge') {
-                        // Transaction is challenged by FDS
-                        $order->update([
-                            'payment_status' => Order::PAYMENT_PENDING,
-                            'status' => Order::STATUS_PENDING,
-                            'midtrans_transaction_id' => $transactionId,
-                            'midtrans_merchant_id' => $merchantId,
-                            'admin_notes' => 'Pembayaran perlu verifikasi manual - Status: Challenge via '.$paymentType,
-                        ]);
-                        Log::info('Payment challenged for order: '.$order->order_number);
-                    } elseif ($fraudStatus == 'accept') {
-                        // Transaction is successful
-                        $order->update([
-                            'payment_status' => Order::PAYMENT_PAID,
-                            'status' => Order::STATUS_CONFIRMED,
-                            'paid_amount' => $grossAmount,
-                            'paid_at' => now(),
-                            'midtrans_transaction_id' => $transactionId,
-                            'midtrans_merchant_id' => $merchantId,
-                            'admin_notes' => 'Pembayaran berhasil via '.$paymentType,
-                        ]);
-                        Log::info('Payment successful for order: '.$order->order_number);
-                    }
-                    break;
-
-                case 'settlement':
-                    // Transaction is successful
-                    $order->update([
-                        'payment_status' => Order::PAYMENT_PAID,
-                        'status' => Order::STATUS_PENDING, // Tetap PENDING, tunggu konfirmasi admin
-                        'paid_amount' => $grossAmount,
-                        'paid_at' => now(),
-                        'midtrans_transaction_id' => $transactionId,
-                        'midtrans_merchant_id' => $merchantId,
-                        'admin_notes' => 'Pembayaran berhasil diselesaikan via '.$paymentType.'. Menunggu konfirmasi admin.',
-                    ]);
-                    Log::info('Payment settled for order: '.$order->order_number);
-                    break;
-
                 case 'capture':
                     if ($fraudStatus == 'challenge') {
                         // Transaction is challenged by FDS
@@ -141,6 +92,20 @@ class PaymentController extends Controller
                         ]);
                         Log::info('Payment successful for order: '.$order->order_number);
                     }
+                    break;
+
+                case 'settlement':
+                    // Transaction is successful
+                    $order->update([
+                        'payment_status' => Order::PAYMENT_PAID,
+                        'status' => Order::STATUS_PENDING, // Tetap PENDING, tunggu konfirmasi admin
+                        'paid_amount' => $grossAmount,
+                        'paid_at' => now(),
+                        'midtrans_transaction_id' => $transactionId,
+                        'midtrans_merchant_id' => $merchantId,
+                        'admin_notes' => 'Pembayaran berhasil diselesaikan via '.$paymentType.'. Menunggu konfirmasi admin.',
+                    ]);
+                    Log::info('Payment settled for order: '.$order->order_number);
                     break;
 
                 case 'deny':
@@ -233,19 +198,23 @@ class PaymentController extends Controller
         $statusCode = $request->get('status_code');
         $paymentType = $request->get('payment_type');
 
-        if (! $orderId) {
+        if (!$orderId) {
             Log::error('No order_id in finish URL');
 
-            return redirect()->route('user.dashboard')->with('error', 'Data callback tidak valid');
+            // PERBAIKAN: Redirect ke halaman error umum, bukan ke route yang butuh parameter
+            return redirect()->route('user.dashboard')
+                ->with('error', 'Data callback tidak valid. Tidak ada order ID.');
         }
 
         // Find order by order_number
         $order = Order::where('order_number', $orderId)->first();
 
-        if (! $order) {
+        if (!$order) {
             Log::error('Order not found for finish URL - Order Number: '.$orderId);
 
-            return redirect()->route('user.dashboard')->with('error', 'Pesanan tidak ditemukan');
+            // PERBAIKAN: Redirect ke dashboard dengan error message
+            return redirect()->route('user.dashboard')
+                ->with('error', 'Pesanan tidak ditemukan. No. Order: ' . $orderId);
         }
 
         Log::info('Finish URL Order Status:', [
@@ -272,7 +241,6 @@ class PaymentController extends Controller
             // If order is already paid, no need to update
             if ($order->payment_status === Order::PAYMENT_PAID) {
                 Log::info('Order already paid, skipping update');
-
                 return;
             }
 
@@ -290,12 +258,12 @@ class PaymentController extends Controller
                     if ($fraudStatus !== 'challenge') {
                         $order->update([
                             'payment_status' => Order::PAYMENT_PAID,
-                            'status' => Order::STATUS_CONFIRMED,
+                            'status' => Order::STATUS_PENDING, // Tetap PENDING, tunggu konfirmasi admin
                             'paid_amount' => $grossAmount ?? $order->total_price,
                             'paid_at' => now(),
                             'midtrans_transaction_id' => $transactionId,
                             'midtrans_merchant_id' => $merchantId,
-                            'admin_notes' => 'Pembayaran berhasil via '.$paymentType.' (from finish URL)',
+                            'admin_notes' => 'Pembayaran berhasil via '.$paymentType.' (from finish URL). Menunggu konfirmasi admin.',
                         ]);
                         Log::info('Order status updated to PAID from finish URL');
                     }
@@ -337,22 +305,19 @@ class PaymentController extends Controller
         switch ($order->payment_status) {
             case Order::PAYMENT_PAID:
                 Log::info('Redirecting to SUCCESS page for order: '.$order->order_number);
-
                 return redirect()->route('payment.success', ['order' => $order->id])
                     ->with('success', 'Pembayaran berhasil! Terima kasih.');
 
             case Order::PAYMENT_PENDING:
                 Log::info('Redirecting to PENDING page for order: '.$order->order_number);
-
                 return redirect()->route('payment.pending', ['order' => $order->id])
                     ->with('info', 'Pembayaran sedang diproses. Silakan tunggu konfirmasi.');
 
             case Order::PAYMENT_FAILED:
             case Order::PAYMENT_EXPIRED:
                 Log::info('Redirecting to FAILED page for order: '.$order->order_number);
-
                 return redirect()->route('payment.failed', ['order' => $order->id])
-                    ->with('error', 'Pembayaran '.strtolower($order->payment_status_display_name));
+                    ->with('error', 'Pembayaran ' . strtolower($order->payment_status_display_name));
 
             default:
                 // Fallback based on transaction status from callback

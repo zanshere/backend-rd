@@ -76,37 +76,103 @@ class OrderManagement extends Component
     {
         $order = Order::findOrFail($orderId);
 
-        $validStatuses = [
-            Order::STATUS_CONFIRMED,
-            Order::STATUS_IN_PROGRESS,
-            Order::STATUS_COMPLETED,
-            Order::STATUS_CANCELLED,
-        ];
+        // Validate status transition
+        $validTransitions = $this->getValidStatusTransitions($order->status);
 
-        if (!in_array($status, $validStatuses)) {
-            session()->flash('error', 'Status tidak valid.');
+        if (!in_array($status, $validTransitions)) {
+            session()->flash('error', 'Status tidak valid atau transisi tidak diizinkan.');
             return;
         }
 
+        $oldStatus = $order->status;
         $order->update(['status' => $status]);
 
-        session()->flash('message', "Status order #{$order->order_number} berhasil diupdate.");
+        // Log status change
+        $this->logStatusChange($order, $oldStatus, $status);
+
+        // Update payment status if needed
+        if ($status === Order::STATUS_CONFIRMED && $order->isPaymentPending()) {
+            $order->update(['payment_status' => Order::PAYMENT_PAID]);
+        }
+
+        session()->flash('message', "Status order #{$order->order_number} berhasil diupdate dari " .
+            $this->getDisplayStatus($oldStatus) . " menjadi " . $this->getDisplayStatus($status) . ".");
+
         $this->dispatch('order-status-updated');
     }
 
     /**
-     * Confirm pending order
+     * Get valid status transitions for current status
+     */
+    private function getValidStatusTransitions(string $currentStatus): array
+    {
+        return match($currentStatus) {
+            Order::STATUS_PENDING => [
+                Order::STATUS_CONFIRMED,  // menerima pesanan
+                Order::STATUS_CANCELLED,  // menolak pesanan
+            ],
+            Order::STATUS_CONFIRMED => [
+                Order::STATUS_IN_PROGRESS,
+                Order::STATUS_CANCELLED,
+            ],
+            Order::STATUS_IN_PROGRESS => [
+                Order::STATUS_COMPLETED,
+                Order::STATUS_CANCELLED,
+            ],
+            Order::STATUS_DRAFT => [
+                Order::STATUS_CONFIRMED,
+                Order::STATUS_CANCELLED,
+            ],
+            default => [],
+        };
+    }
+
+    /**
+     * Log status change
+     */
+    private function logStatusChange(Order $order, string $oldStatus, string $newStatus): void
+    {
+        // You can implement logging here if needed
+        // For example, create a progress update or log to database
+        \App\Models\ProgressUpdate::create([
+            'order_id' => $order->id,
+            'progress_percentage' => $this->getProgressPercentageForStatus($newStatus),
+            'notes' => "Status berubah dari " . $this->getDisplayStatus($oldStatus) .
+                      " menjadi " . $this->getDisplayStatus($newStatus),
+            'updated_by' => auth()->id(),
+        ]);
+    }
+
+    /**
+     * Get progress percentage for status
+     */
+    private function getProgressPercentageForStatus(string $status): int
+    {
+        return match($status) {
+            Order::STATUS_DRAFT => 0,
+            Order::STATUS_PENDING => 10,
+            Order::STATUS_CONFIRMED => 30,
+            Order::STATUS_IN_PROGRESS => 60,
+            Order::STATUS_COMPLETED => 100,
+            Order::STATUS_CANCELLED => 0,
+            default => 0,
+        };
+    }
+
+    /**
+     * Confirm pending order (alias for updateOrderStatus)
      */
     public function confirmOrder(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        $this->updateOrderStatus($orderId, Order::STATUS_CONFIRMED);
+    }
 
-        if ($order->isPending()) {
-            $order->update(['status' => Order::STATUS_CONFIRMED]);
-            session()->flash('message', "Order #{$order->order_number} berhasil dikonfirmasi.");
-        } else {
-            session()->flash('error', "Hanya order dengan status pending yang bisa dikonfirmasi.");
-        }
+    /**
+     * Reject pending order (alias for updateOrderStatus)
+     */
+    public function rejectOrder(int $orderId): void
+    {
+        $this->updateOrderStatus($orderId, Order::STATUS_CANCELLED);
     }
 
     /**
@@ -114,14 +180,7 @@ class OrderManagement extends Component
      */
     public function markAsInProgress(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
-
-        if ($order->isConfirmed() || $order->isPending()) {
-            $order->update(['status' => Order::STATUS_IN_PROGRESS]);
-            session()->flash('message', "Order #{$order->order_number} ditandai sebagai dalam pengerjaan.");
-        } else {
-            session()->flash('error', "Hanya order dengan status confirmed atau pending yang bisa diproses.");
-        }
+        $this->updateOrderStatus($orderId, Order::STATUS_IN_PROGRESS);
     }
 
     /**
@@ -129,14 +188,7 @@ class OrderManagement extends Component
      */
     public function markAsCompleted(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
-
-        if ($order->isInProgress()) {
-            $order->update(['status' => Order::STATUS_COMPLETED]);
-            session()->flash('message', "Order #{$order->order_number} ditandai sebagai selesai.");
-        } else {
-            session()->flash('error', "Hanya order dengan status in progress yang bisa diselesaikan.");
-        }
+        $this->updateOrderStatus($orderId, Order::STATUS_COMPLETED);
     }
 
     /**
@@ -144,14 +196,7 @@ class OrderManagement extends Component
      */
     public function cancelOrder(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
-
-        if (!$order->isCompleted() && !$order->isCancelled()) {
-            $order->update(['status' => Order::STATUS_CANCELLED]);
-            session()->flash('message', "Order #{$order->order_number} berhasil dibatalkan.");
-        } else {
-            session()->flash('error', "Order yang sudah selesai atau dibatalkan tidak bisa dibatalkan lagi.");
-        }
+        $this->updateOrderStatus($orderId, Order::STATUS_CANCELLED);
     }
 
     /**
@@ -210,76 +255,6 @@ class OrderManagement extends Component
             Order::STATUS_CANCELLED => 'Dibatalkan',
             default => 'Tidak Diketahui',
         };
-    }
-
-    /**
-     * Get available actions for order
-     */
-    public function getAvailableActions(Order $order): array
-    {
-        $actions = [];
-
-        if ($order->isPending()) {
-            $actions[] = [
-                'label' => 'Konfirmasi',
-                'method' => 'confirmOrder',
-                'color' => 'blue',
-                'icon' => 'check'
-            ];
-            $actions[] = [
-                'label' => 'Mulai Pengerjaan',
-                'method' => 'markAsInProgress',
-                'color' => 'indigo',
-                'icon' => 'play'
-            ];
-            $actions[] = [
-                'label' => 'Batalkan',
-                'method' => 'cancelOrder',
-                'color' => 'red',
-                'icon' => 'x'
-            ];
-        } elseif ($order->isConfirmed()) {
-            $actions[] = [
-                'label' => 'Mulai Pengerjaan',
-                'method' => 'markAsInProgress',
-                'color' => 'indigo',
-                'icon' => 'play'
-            ];
-            $actions[] = [
-                'label' => 'Batalkan',
-                'method' => 'cancelOrder',
-                'color' => 'red',
-                'icon' => 'x'
-            ];
-        } elseif ($order->isInProgress()) {
-            $actions[] = [
-                'label' => 'Tandai Selesai',
-                'method' => 'markAsCompleted',
-                'color' => 'green',
-                'icon' => 'check-circle'
-            ];
-            $actions[] = [
-                'label' => 'Batalkan',
-                'method' => 'cancelOrder',
-                'color' => 'red',
-                'icon' => 'x'
-            ];
-        } elseif ($order->isDraft()) {
-            $actions[] = [
-                'label' => 'Konfirmasi',
-                'method' => 'confirmOrder',
-                'color' => 'blue',
-                'icon' => 'check'
-            ];
-            $actions[] = [
-                'label' => 'Batalkan',
-                'method' => 'cancelOrder',
-                'color' => 'red',
-                'icon' => 'x'
-            ];
-        }
-
-        return $actions;
     }
 
     /**

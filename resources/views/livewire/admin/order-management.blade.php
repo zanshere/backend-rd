@@ -165,23 +165,23 @@
                                     <div class="flex items-center gap-2">
                                         <!-- Quick Status Actions -->
                                         @if($order->status === 'pending')
-                                            <button
-                                                wire:click="updateOrderStatus({{ $order->id }}, 'accepted')"
-                                                class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 flex items-center gap-1 text-xs"
-                                                title="Terima Pesanan"
-                                            >
-                                                <i data-lucide="check" class="w-4 h-4"></i>
-                                                Terima
-                                            </button>
-                                            <button
-                                                wire:click="updateOrderStatus({{ $order->id }}, 'rejected')"
-                                                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 text-xs"
-                                                title="Tolak Pesanan"
-                                            >
-                                                <i data-lucide="x" class="w-4 h-4"></i>
-                                                Tolak
-                                            </button>
-                                        @elseif($order->status === 'accepted')
+    <button
+        wire:click="updateOrderStatus({{ $order->id }}, 'confirmed')"
+        class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 flex items-center gap-1 text-xs"
+        title="Terima Pesanan"
+    >
+        <i data-lucide="check" class="w-4 h-4"></i>
+        Terima
+    </button>
+    <button
+        wire:click="updateOrderStatus({{ $order->id }}, 'cancelled')"
+        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 text-xs"
+        title="Tolak Pesanan"
+    >
+        <i data-lucide="x" class="w-4 h-4"></i>
+        Tolak
+    </button>
+@elseif($order->status === 'confirmed')
                                             <button
                                                 wire:click="updateOrderStatus({{ $order->id }}, 'progress')"
                                                 class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 text-xs"

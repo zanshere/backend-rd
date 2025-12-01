@@ -10,13 +10,13 @@ class PaymentSuccess extends Component
 {
     public $order;
     public $orderId;
-    public $isPolling = false;
+    public $isPolling = true;
     public $progressPercentage = 0;
     public $timelineItems = [];
 
     protected $listeners = [
-        'refresh' => 'loadOrder',
-        'stopPolling' => 'stopPollingHandler'
+        'refresh' => 'checkStatus',
+        'stop-polling' => 'stopPollingHandler'
     ];
 
     public function mount($order)
@@ -28,12 +28,15 @@ class PaymentSuccess extends Component
         if ($this->order->payment_status === Order::PAYMENT_PAID &&
             $this->order->status === Order::STATUS_PENDING) {
             $this->isPolling = true;
+            $this->dispatch('start-polling');
         }
     }
 
-    public function loadOrder()
+    protected function loadOrder()
     {
-        $this->order = Order::with(['package', 'user'])
+        $this->order = Order::with(['package', 'user', 'progressUpdates' => function($query) {
+            $query->orderBy('created_at', 'desc')->limit(5);
+        }])
             ->where('id', $this->orderId)
             ->where('user_id', Auth::id())
             ->firstOrFail();
@@ -72,7 +75,7 @@ class PaymentSuccess extends Component
                 // Jika ada progress updates, gunakan itu
                 if ($this->order->progressUpdates()->exists()) {
                     $latestProgress = $this->order->progressUpdates()->latest()->first();
-                    $this->progressPercentage = $latestProgress->progress_percentage;
+                    $this->progressPercentage = $latestProgress->progress_percentage ?? 30;
                 } else {
                     $this->progressPercentage = 30; // Default saat mulai pengerjaan
                 }
@@ -152,11 +155,11 @@ class PaymentSuccess extends Component
         }
 
         // Tambahkan progress updates jika ada
-        if ($this->order->progressUpdates()->exists()) {
-            foreach ($this->order->progressUpdates()->orderBy('created_at', 'asc')->get() as $progress) {
+        if ($this->order->progressUpdates->isNotEmpty()) {
+            foreach ($this->order->progressUpdates as $progress) {
                 $this->timelineItems[] = [
-                    'title' => 'Progress: ' . $progress->progress_label,
-                    'description' => $progress->notes ?? 'Update progress pengerjaan',
+                    'title' => 'Progress: ' . ($progress->title ?? 'Update Progress'),
+                    'description' => $progress->description ?? 'Update progress pengerjaan',
                     'date' => $progress->created_at->format('d M Y H:i'),
                     'icon' => 'activity',
                     'color' => 'indigo',
@@ -196,18 +199,6 @@ class PaymentSuccess extends Component
         $this->isPolling = false;
     }
 
-    public function startPolling()
-    {
-        if (!$this->isPolling) {
-            $this->isPolling = true;
-        }
-    }
-
-    public function stopPolling()
-    {
-        $this->isPolling = false;
-    }
-
     public function downloadInvoice()
     {
         $this->dispatch('download-started');
@@ -222,7 +213,7 @@ class PaymentSuccess extends Component
             echo "--- Detail Pesanan ---\n";
             echo "Paket: " . $this->order->package->name . "\n";
             echo "Project: " . $this->order->project_name . "\n";
-            echo "Domain: " . $this->order->domain_name . "\n\n";
+            echo "Domain: " . $this->order->domain_name . ".com\n\n";
             echo "--- Rincian Biaya ---\n";
             echo "Harga Paket: Rp " . number_format($this->order->base_price, 0, ',', '.') . "\n";
             if ($this->order->discount_amount > 0) {
@@ -233,7 +224,7 @@ class PaymentSuccess extends Component
             echo "Nama: " . $this->order->user->name . "\n";
             echo "Email: " . $this->order->user->email . "\n";
             echo "\nTerima kasih telah menggunakan layanan kami.\n";
-            echo "Support: support@yourdomain.com | 0812-3456-7890\n";
+            echo "Support: support@example.com | 0812-3456-7890\n";
         }, 'invoice-' . $this->order->order_number . '.txt');
     }
 

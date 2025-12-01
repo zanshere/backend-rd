@@ -79,7 +79,14 @@ Route::middleware(['auth'])->group(function () {
             ->name('payment.pending');
 
         // Payment page (untuk proses pembayaran awal)
-        Route::get('/payment/{order}', \App\Livewire\Payment::class)->name('payment.page');
+        Route::get('/payment/{order}', \App\Livewire\Payment::class)
+            ->name('payment.page');
+
+        // PERBAIKAN: Tambahkan route untuk halaman status tanpa order ID (fallback)
+        Route::get('/payment/status', function () {
+            return redirect()->route('user.dashboard')
+                ->with('error', 'Tidak ada data pesanan untuk ditampilkan.');
+        })->name('payment.status');
     });
 
     // User routes - menggunakan role:user

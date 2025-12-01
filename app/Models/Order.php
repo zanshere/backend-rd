@@ -13,15 +13,15 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * Order status constants
-     */
-    const STATUS_DRAFT = 'draft';
-    const STATUS_PENDING = 'pending';
-    const STATUS_CONFIRMED = 'confirmed';
-    const STATUS_IN_PROGRESS = 'progress';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_CANCELLED = 'cancelled';
+/**
+ * Order status constants
+ */
+const STATUS_DRAFT = 'draft';
+const STATUS_PENDING = 'pending';
+const STATUS_CONFIRMED = 'confirmed';      // Untuk "accepted"
+const STATUS_IN_PROGRESS = 'progress';     // Perhatikan: 'progress' bukan 'in_progress'
+const STATUS_COMPLETED = 'completed';
+const STATUS_CANCELLED = 'cancelled';      // Untuk "rejected"
 
     /**
      * Payment status constants
@@ -481,21 +481,20 @@ class Order extends Model
         };
     }
 
-    /**
-     * Get status display name
-     */
-    public function getStatusDisplayNameAttribute(): string
-    {
-        return match($this->status) {
-            self::STATUS_DRAFT => 'Draft',
-            self::STATUS_PENDING => 'Menunggu Konfirmasi',
-            self::STATUS_CONFIRMED => 'Dikonfirmasi',
-            self::STATUS_IN_PROGRESS => 'Dalam Pengerjaan',
-            self::STATUS_COMPLETED => 'Selesai',
-            self::STATUS_CANCELLED => 'Dibatalkan',
-            default => 'Tidak Diketahui',
-        };
-    }
+/**
+ * Status display names
+ */
+public static function getStatusDisplayNames(): array
+{
+    return [
+        self::STATUS_DRAFT => 'Draft',
+        self::STATUS_PENDING => 'Menunggu Konfirmasi',
+        self::STATUS_CONFIRMED => 'Dikonfirmasi',
+        self::STATUS_IN_PROGRESS => 'Dalam Pengerjaan',
+        self::STATUS_COMPLETED => 'Selesai',
+        self::STATUS_CANCELLED => 'Dibatalkan',
+    ];
+}
 
     /**
      * Get payment status display name
